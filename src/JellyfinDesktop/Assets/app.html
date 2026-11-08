@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jellyfin</title>
+<style>
+  :root {
+    --bg: #101010; --card: #1c1c1c; --line: #2e2e2e; --text: #eee; --muted: #9a9a9a;
+    --accent: #00a4dc; --accent-2: #aa5cc3; --error: #ff6b6b; --ok: #4caf50;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: radial-gradient(1200px 600px at 50% -10%, #1d1530 0%, var(--bg) 60%);
+    color: var(--text); font: 15px/1.5 "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+    display: flex; align-items: center; justify-content: center; padding: 24px;
+    user-select: none;
+  }
+  .card {
+    width: 100%; max-width: 460px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 14px; padding: 32px; box-shadow: 0 20px 60px rgba(0,0,0,.45);
+  }
+  .logo { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+  .logo h1 { font-size: 22px; font-weight: 600; margin: 0; }
+  .logo small { display: block; color: var(--muted); font-size: 13px; font-weight: 400; }
+  label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  input[type=text] {
+    width: 100%; padding: 11px 12px; border-radius: 8px; border: 1px solid var(--line);
+    background: #121212; color: var(--text); font: inherit; outline: none; user-select: text;
+  }
+  input[type=text]:focus { border-color: var(--accent); }
+  .check { display: flex; align-items: center; gap: 8px; margin: 12px 0 20px; font-size: 13px; color: var(--muted); cursor: pointer; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; }
+  button {
+    font: inherit; border: 0; border-radius: 8px; padding: 10px 18px; cursor: pointer;
+    background: #2a2a2a; color: var(--text);
+  }
+  button:hover { background: #333; }
+  button.primary { background: linear-gradient(135deg, var(--accent-2), var(--accent)); color: #fff; font-weight: 600; }
+  button.primary:hover { filter: brightness(1.1); }
+  button:disabled { opacity: .6; cursor: default; }
+  .msg { margin-top: 16px; font-size: 14px; min-height: 1.5em; }
+  .msg.error { color: var(--error); }
+  .msg.ok { color: var(--ok); }
+  .recent { margin-top: 24px; border-top: 1px solid var(--line); padding-top: 16px; }
+  .recent h2 { font-size: 13px; font-weight: 600; color: var(--muted); margin: 0 0 8px; }
+  .recent ul { list-style: none; margin: 0; padding: 0; }
+  .recent li { display: flex; align-items: center; border-radius: 8px; }
+  .recent li:hover { background: #262626; }
+  .recent li a { flex: 1; padding: 8px 10px; color: var(--text); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+  .recent li button { background: none; padding: 4px 10px; color: var(--muted); }
+  .recent li button:hover { color: var(--error); }
+  .hint { color: var(--muted); font-size: 12px; margin-top: 20px; }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #fff6; border-top-color: #fff; border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .hidden { display: none !important; }
+  h2.title { margin: 0 0 8px; font-size: 20px; }
+  p.detail { color: var(--muted); margin: 0 0 20px; word-break: break-all; }
+  code { color: var(--text); }
+</style>
+</head>
+<body>
+<main class="card">
+  <div class="logo">
+    <svg width="44" height="44" viewBox="0 0 64 64" aria-hidden="true">
+      <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#aa5cc3"/><stop offset="1" stop-color="#00a4dc"/></linearGradient></defs>
+      <rect x="4" y="4" width="56" height="56" rx="14" fill="url(#g)"/>
+      <path d="M26 20 L46 32 L26 44 Z" fill="#fff"/>
+    </svg>
+    <h1>Jellyfin Desktop<small>Client für den Jellyfin-Server</small></h1>
+  </div>
+
+  <!-- Verbinden -->
+  <section id="connect" class="hidden">
+    <form id="form" autocomplete="off">
+      <label for="url">Serveradresse</label>
+      <input id="url" type="text" spellcheck="false" placeholder="z. B. 192.168.1.10:8096 oder https://jellyfin.example.de">
+      <label class="check"><input id="insecure" type="checkbox"> Selbstsigniertes Zertifikat akzeptieren</label>
+      <div class="row">
+        <button id="go" class="primary" type="submit">Verbinden</button>
+        <button id="back" type="button" class="hidden">Zurück</button>
+      </div>
+    </form>
+    <div id="msg" class="msg"></div>
+    <div id="recentBox" class="recent hidden">
+      <h2>Zuletzt verwendet</h2>
+      <ul id="recent"></ul>
+    </div>
+    <p class="hint">Ohne Port wird zuerst <code>:8096</code> versucht. Pfade hinter einem Reverse Proxy
+      (z. B. <code>https://host/jellyfin</code>) werden unterstützt.</p>
+  </section>
+
+  <!-- Fehler -->
+  <section id="error" class="hidden">
+    <h2 class="title">Server nicht erreichbar</h2>
+    <p id="errMsg"></p>
+    <p class="detail" id="errDetail"></p>
+    <div class="row">
+      <button id="retry" class="primary">Erneut versuchen</button>
+      <button id="trust" class="hidden">Zertifikat vertrauen</button>
+      <button id="change">Anderen Server wählen</button>
+    </div>
+    <div id="countdown" class="msg"></div>
+  </section>
+</main>
+
+<script>
+/*__STATE__*/
+(function () {
+  const S = window.__STATE__ || { mode: "connect", recent: [] };
+  const $ = (id) => document.getElementById(id);
+  const post = (m) => window.chrome && window.chrome.webview && window.chrome.webview.postMessage(m);
+  let busy = false;
+
+  function setMsg(text, kind, spin) {
+    const el = $("msg");
+    el.className = "msg" + (kind ? " " + kind : "");
+    el.textContent = "";
+    if (spin) { const s = document.createElement("span"); s.className = "spinner"; el.appendChild(s); }
+    el.appendChild(document.createTextNode(text || ""));
+  }
+
+  function setBusy(b) {
+    busy = b;
+    $("go").textContent = b ? "Abbrechen" : "Verbinden";
+    $("url").disabled = b;
+  }
+
+  function connect(url) {
+    if (busy) { post({ type: "cancel" }); setBusy(false); setMsg(""); return; }
+    url = (url || $("url").value).trim();
+    if (!url) { setMsg("Bitte eine Serveradresse eingeben.", "error"); $("url").focus(); return; }
+    $("url").value = url;
+    setBusy(true);
+    setMsg("Verbinde mit " + url + " …", "", true);
+    post({ type: "connect", url: url, insecure: $("insecure").checked });
+  }
+
+  function renderRecent() {
+    const list = $("recent");
+    list.textContent = "";
+    (S.recent || []).forEach(function (url) {
+      const li = document.createElement("li");
+      const a = document.createElement("a");
+      a.textContent = url; a.title = url;
+      a.onclick = function () { connect(url); };
+      const rm = document.createElement("button");
+      rm.type = "button"; rm.textContent = "✕"; rm.title = "Aus Liste entfernen";
+      rm.onclick = function () {
+        post({ type: "removeRecent", url: url });
+        S.recent = S.recent.filter(function (r) { return r !== url; });
+        renderRecent();
+      };
+      li.appendChild(a); li.appendChild(rm); list.appendChild(li);
+    });
+    $("recentBox").classList.toggle("hidden", !(S.recent && S.recent.length));
+  }
+
+  if (window.chrome && window.chrome.webview) {
+    window.chrome.webview.addEventListener("message", function (ev) {
+      const m = ev.data || {};
+      if (m.type !== "connectResult") return;
+      if (m.ok) { setMsg("Verbunden: " + m.name + " (Jellyfin " + m.version + ")", "ok"); }
+      else { setBusy(false); setMsg(m.error || "Verbindung fehlgeschlagen.", "error"); $("url").focus(); }
+    });
+  }
+
+  if (S.mode === "error") {
+    $("error").classList.remove("hidden");
+    $("errMsg").textContent = S.message || "";
+    $("errDetail").textContent = (S.server || "") + (S.status ? "  ·  " + S.status : "");
+    if (S.certHost) {
+      const t = $("trust");
+      t.classList.remove("hidden");
+      t.textContent = "Zertifikat von " + S.certHost + " vertrauen";
+      t.onclick = function () { post({ type: "trustCert", host: S.certHost }); };
+    }
+    $("retry").onclick = function () { post({ type: "retry" }); };
+    $("change").onclick = function () { post({ type: "changeServer" }); };
+    // automatischer Neuversuch (z. B. wenn der Server gerade neu startet)
+    if (!S.certHost) {
+      let left = 15;
+      const tick = function () {
+        if (left <= 0) { post({ type: "retry" }); return; }
+        $("countdown").textContent = "Neuer Versuch in " + left + " s …";
+        left--; setTimeout(tick, 1000);
+      };
+      tick();
+    }
+  } else {
+    $("connect").classList.remove("hidden");
+    $("url").value = S.server || "";
+    if (S.canGoBack) {
+      $("back").classList.remove("hidden");
+      $("back").onclick = function () { post({ type: "retry" }); };
+    }
+    renderRecent();
+    if (S.error) setMsg(S.error, "error");
+    $("form").addEventListener("submit", function (e) { e.preventDefault(); connect(); });
+    $("url").focus(); $("url").select();
+    if (S.autoConnect && S.server) connect(S.server);
+  }
+})();
+</script>
+</body>
+</html>
