@@ -28,9 +28,15 @@ Microsoft Edge **WebView2** und lädt das Web-Interface **direkt vom eigenen Jel
 F11 Vollbild · F12 Entwicklertools · Strg+Mausrad / Strg+0 Zoom.
 Weitere Befehle (u. a. *Cache leeren*) im **Rechtsklick-Menü der Titelleiste**.
 
-## Starten
+## Installation
 
-`JellyfinDesktop.exe` ausführen – keine Installation, kein .NET nötig (self-contained).
+**Installer:** `JellyfinDesktop-Setup-1.0.0.exe` ausführen. Installiert pro Benutzer (keine Adminrechte)
+nach `%LOCALAPPDATA%\Programs\Jellyfin Desktop`, legt einen **Startmenü-Eintrag** an (optional auch
+eine Desktop-Verknüpfung) und erscheint unter *Einstellungen → Apps → Installierte Apps* zum Deinstallieren.
+Beim Deinstallieren wird gefragt, ob Anmeldung/Einstellungen ebenfalls gelöscht werden sollen.
+Stille Installation: `JellyfinDesktop-Setup-1.0.0.exe /S`.
+
+**Ohne Installation:** `JellyfinDesktop.exe` direkt ausführen – kein .NET nötig (self-contained).
 Die WebView2 Runtime ist in Windows 11 vorinstalliert.
 
 ```
@@ -54,5 +60,7 @@ dotnet publish src/JellyfinDesktop -c Release -o dist
 ```
 
 Benötigt das .NET 8 SDK (unter Windows oder per `EnableWindowsTargeting` auch unter Linux/macOS).
-Ergebnis: `dist/JellyfinDesktop.exe` (Windows x64, eine Datei). Der GitHub-Workflow in
+Ergebnis: `dist/JellyfinDesktop.exe` (Windows x64, eine Datei).
+Installer danach mit [NSIS](https://nsis.sourceforge.io): `makensis -DVERSION=1.0.0 installer/JellyfinDesktop.nsi`
+→ `dist/JellyfinDesktop-Setup-1.0.0.exe`. Der GitHub-Workflow in
 `.github/workflows/build.yml` baut die EXE ebenfalls.
