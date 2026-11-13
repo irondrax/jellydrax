@@ -14,7 +14,8 @@ jobs:
       - name: NSIS installieren
         run: choco install nsis -y --no-progress
       - name: Installer bauen
-        run: '& "${env:ProgramFiles(x86)}\NSIS\makensis.exe" -DVERSION=2.1.0 installer/JellyDrax.nsi'
+        shell: cmd
+        run: '"%ProgramFiles(x86)%\NSIS\makensis.exe" -DVERSION=2.1.0 installer\JellyDrax.nsi'
       - uses: actions/upload-artifact@v5
         with:
           name: JellyDrax-win-x64
