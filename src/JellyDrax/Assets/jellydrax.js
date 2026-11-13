@@ -20,6 +20,8 @@
   // ------------------------------------------------------------- Themes
 
   var THEMES = {
+    glass: { name: 'Glass', glass: true, bg: '#0a0f1f', surface: '#151b33', surface2: '#212a4a', text: '#f4f6ff', muted: '#aeb6d4', accent: '#7aa2ff', accent2: '#c77dff' },
+    glassaurora: { name: 'Glass Aurora', glass: true, bg: '#05141a', surface: '#0e2430', surface2: '#173543', text: '#effbfa', muted: '#9cc3c6', accent: '#2fe6c8', accent2: '#ff6fd8' },
     jellydrax: { name: 'JellyDrax', bg: '#0d0b14', surface: '#17141f', surface2: '#231e2f', text: '#f2eefa', muted: '#a9a1b8', accent: '#9b5cff', accent2: '#00c2ff' },
     midnight: { name: 'Midnight', bg: '#090d18', surface: '#111827', surface2: '#1b2438', text: '#e8ecf7', muted: '#98a2bd', accent: '#4f8cff', accent2: '#8b5cf6' },
     amoled: { name: 'AMOLED', bg: '#000000', surface: '#0b0b0b', surface2: '#171717', text: '#ffffff', muted: '#9a9a9a', accent: '#f2f2f2', accent2: '#9e9e9e' },
@@ -55,6 +57,8 @@
   var DEFAULTS = {
     theme: 'jellydrax',
     colors: {},
+    glass: false,
+    detailBanner: 'color',
     bgStyle: 'glow',
     radius: 12,
     font: 'segoe',
@@ -216,7 +220,7 @@
       '--jdx-text': p.text, '--jdx-text-rgb': cm(text),
       '--jdx-muted': p.muted,
       '--jdx-accent': p.accent, '--jdx-accent-rgb': cm(accent),
-      '--jdx-accent2': p.accent2,
+      '--jdx-accent2': p.accent2, '--jdx-accent2-rgb': cm(accent2),
       '--jdx-on-accent': rgbToHex(onAccent),
       '--jdx-radius': S.radius + 'px',
       '--jdx-font': FONTS[S.font] || FONTS.segoe,
@@ -262,6 +266,8 @@
     r.classList.add('jdx');
     r.classList.toggle('jdx-nobackdrop', !S.backdrops);
     r.classList.toggle('jdx-glass', !!S.glassHeader);
+    r.classList.toggle('jdx-glassmode', !!S.glass);
+    r.setAttribute('data-jdx-banner', S.detailBanner || 'color');
     r.classList.toggle('jdx-hide-plugin-bar', !!S.hidePluginBar);
     r.classList.toggle('jdx-hide-first-title', !!S.hideFirstTitle);
     r.classList.toggle('jdx-center-libs', !!S.centerLibraries);
@@ -275,6 +281,32 @@
     styleCustom.textContent = S.customCss || '';
     applyClasses();
     if (MB.el) applyMediaBarAttrs();
+    sendWindowColors();
+  }
+
+  // Titelleiste des Windows-Fensters an das Theme anpassen (Windows 11)
+  var lastWindowColors = '';
+  function sendWindowColors() {
+    var p = palette();
+    var msg = { jdx: 'chrome', caption: S.glass ? p.bg : p.surface, text: p.text };
+    var key = JSON.stringify(msg);
+    if (key === lastWindowColors) return;
+    lastWindowColors = key;
+    try { if (window.chrome && window.chrome.webview) window.chrome.webview.postMessage(msg); } catch (e) { /* ignorieren */ }
+  }
+
+  // Media Bar eines Server-Plugins: ausgeblendet, aber deren Trailer laufen sonst unsichtbar weiter
+  function silencePluginBar() {
+    if (!S.hidePluginBar) return;
+    var c = document.getElementById('slides-container');
+    if (!c) return;
+    c.querySelectorAll('video').forEach(function (v) { v.muted = true; if (!v.paused) v.pause(); });
+    c.querySelectorAll('iframe').forEach(function (f) {
+      try {
+        f.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'mute', args: [] }), '*');
+        f.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'pauseVideo', args: [] }), '*');
+      } catch (e) { /* ignorieren */ }
+    });
   }
 
   // ======================================================== Media Bar
@@ -919,7 +951,10 @@
     var grid = el('div', { class: 'jdx-themes' });
     Object.keys(THEMES).forEach(function (id) {
       var t = THEMES[id];
-      var prev = el('div', { class: 'jdx-theme-prev', style: { background: t.bg } }, [
+      var prevBg = t.glass
+        ? 'radial-gradient(circle at 15% 20%, ' + t.accent + '99, transparent 55%), radial-gradient(circle at 85% 30%, ' + t.accent2 + '88, transparent 55%), ' + t.bg
+        : t.bg;
+      var prev = el('div', { class: 'jdx-theme-prev', style: { background: prevBg } }, [
         el('b', { style: { background: t.text } }), el('em', { style: { background: t.muted } }),
         el('u', { style: { background: 'linear-gradient(135deg,' + t.accent + ',' + t.accent2 + ')' } })
       ]);
@@ -929,6 +964,7 @@
       b.addEventListener('click', function () {
         S.theme = id;
         S.colors = {};
+        S.glass = !!t.glass;
         changed('theme');
         renderTab();
       });
@@ -994,7 +1030,8 @@
       add(row('Hintergrund', 'Keine Bilder aus der Mediathek – nur Farbe', selectCtl('bgStyle', BG_STYLES)));
       add(row('Eckenradius', 'Karten, Schaltflächen und Dialoge', rangeCtl('radius', 0, 24, 1, px)));
       add(row('Schriftart', null, selectCtl('font', FONT_OPTS)));
-      add(row('Glas-Effekt für die Kopfleiste', 'Halbtransparent mit Unschärfe', toggleCtl('glassHeader')));
+      add(row('Glas-Optik', 'Kopfleiste, Menüs, Dialoge, Rubriken und Karten halbtransparent mit Unschärfe – bei den Glass-Themes automatisch an', toggleCtl('glass')));
+      add(row('Glas-Effekt für die Kopfleiste', 'Nur die Kopfleiste halbtransparent', toggleCtl('glassHeader')));
     } else if (activeTab === 'mediabar') {
       add(row('Media Bar anzeigen', 'Große Vorschau oben auf der Startseite', toggleCtl('mediaBar.enabled')));
       add(el('h3', { text: 'Stil' })); add(tiles('mediaBar.style', MB_STYLES, styleSketch));
@@ -1038,6 +1075,7 @@
       add(row('Geschwindigkeit', 'Faktor für alle Animationen (kleiner = schneller)', rangeCtl('speed', 0.5, 2, 0.1, function (v) { return v.toFixed(1) + '×'; })));
     } else if (activeTab === 'home') {
       add(row('Hintergrundbilder aus der Mediathek', 'Standard: aus – der Hintergrund bleibt einfarbig', toggleCtl('backdrops')));
+      add(row('Banner auf Film- und Serienseiten', 'Farbverlauf statt Hintergrundbild oder das Bild des Titels', selectCtl('detailBanner', [['color', 'Farbverlauf (Theme)'], ['image', 'Bild des Titels']])));
       add(row('Rubriken-Reihe zentrieren', 'Die Bibliotheks-Buttons unter der Media Bar mittig ausrichten', toggleCtl('centerLibraries')));
       add(row('Titel der ersten Rubrik ausblenden', 'z. B. „Meine Medien“', toggleCtl('hideFirstTitle')));
       add(row('Media Bar eines Server-Plugins ausblenden', 'Verhindert doppelte Media Bars', toggleCtl('hidePluginBar')));
@@ -1115,13 +1153,55 @@
 
   // ----------------------------------------------- Button in der Kopfleiste
 
+  var PALETTE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3a9 9 0 0 0 0 18c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>';
+  var headerMisses = 0;
+
+  function removeFab() { var f = document.getElementById('jdx-fab'); if (f) f.remove(); }
+
   function ensureHeaderButton() {
+    // a) klassische Kopfleiste (Legacy-Layout)
     var right = document.querySelector('.skinHeader:not(.osdHeader) .headerRight');
-    if (!right || right.querySelector('.jdx-headerBtn')) return;
-    var b = el('button', { type: 'button', class: 'headerButton headerButtonRight paper-icon-button-light jdx-headerBtn', title: 'JellyDrax-Design (Strg+,)' }, [icon('palette')]);
-    b.addEventListener('click', function () { openSettings(); });
-    var user = right.querySelector('.headerUserButton');
-    right.insertBefore(b, user || null);
+    if (right) {
+      headerMisses = 0; removeFab();
+      if (right.querySelector('.jdx-headerBtn')) return;
+      var b = el('button', { type: 'button', class: 'headerButton headerButtonRight paper-icon-button-light jdx-headerBtn', title: 'JellyDrax-Design (Strg+,)' }, [icon('palette')]);
+      b.addEventListener('click', function () { openSettings(); });
+      var user = right.querySelector('.headerUserButton');
+      right.insertBefore(b, user || null);
+      return;
+    }
+
+    // b) moderne Kopfleiste (Jellyfin 10.11+/12.x, Standard)
+    var toolbar = document.querySelector('.MuiAppBar-root .MuiToolbar-root');
+    if (toolbar) {
+      headerMisses = 0; removeFab();
+      if (toolbar.querySelector('.jdx-toolbarBtn')) return;
+      var ref = toolbar.querySelector('a[href*="search"]') ||
+        toolbar.querySelector('.MuiIconButton-root:not(.jdx-toolbarBtn)');
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      // gleiche Klassen wie der Such-Button -> identisches Aussehen
+      btn.className = (ref ? ref.className.replace(/\bMui-disabled\b/g, '') : 'MuiButtonBase-root MuiIconButton-root') + ' jdx-toolbarBtn';
+      btn.title = 'JellyDrax-Design (Strg+,)';
+      btn.setAttribute('aria-label', 'JellyDrax-Design');
+      btn.style.color = 'inherit';
+      btn.innerHTML = PALETTE_SVG;
+      btn.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); openSettings(); });
+      if (ref && ref.parentNode) ref.parentNode.insertBefore(btn, ref);
+      else toolbar.insertBefore(btn, toolbar.lastElementChild);
+      return;
+    }
+
+    // c) keine Kopfleiste erkannt -> schwebender Button (nicht im Player)
+    if (/^#\/?video/.test(location.hash) || document.documentElement.classList.contains('transparentDocument')) { removeFab(); return; }
+    if (!userId() || ++headerMisses < 4 || document.getElementById('jdx-fab')) return;
+    var fab = document.createElement('button');
+    fab.id = 'jdx-fab';
+    fab.type = 'button';
+    fab.title = 'JellyDrax-Design (Strg+,)';
+    fab.innerHTML = PALETTE_SVG;
+    fab.addEventListener('click', function () { openSettings(); });
+    document.body.appendChild(fab);
   }
 
   // =============================================================== Start
@@ -1140,6 +1220,7 @@
     }
     ensureStyles();
     ensureHeaderButton();
+    silencePluginBar();
     refreshMediaBar(false);
   }
 
@@ -1166,7 +1247,8 @@
   document.addEventListener('visibilitychange', syncPause);
   document.addEventListener('keydown', function (e) {
     if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key === ',') { e.preventDefault(); window.JellyDrax.toggleSettings(); }
-  });
+    else if (e.key === 'Escape' && document.getElementById('jdx-settings')) { e.preventDefault(); e.stopPropagation(); closeSettings(); }
+  }, true);
   setInterval(tick, 700);
   tick();
 })();

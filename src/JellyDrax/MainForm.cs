@@ -310,6 +310,27 @@ public sealed class MainForm : Form
         await RegisterClientScriptAsync(); // beim nächsten Laden aktuelle Werte
     }
 
+    /// <summary>Färbt die Windows-Titelleiste passend zum Theme (ab Windows 11; unter Windows 10 ohne Wirkung).</summary>
+    private void SetTitleBarColors(string? caption, string? text)
+    {
+        static int? ToColorRef(string? hex)
+        {
+            if (hex == null || !System.Text.RegularExpressions.Regex.IsMatch(hex, "^#[0-9a-fA-F]{6}$")) return null;
+            var r = Convert.ToInt32(hex.Substring(1, 2), 16);
+            var g = Convert.ToInt32(hex.Substring(3, 2), 16);
+            var b = Convert.ToInt32(hex.Substring(5, 2), 16);
+            return r | (g << 8) | (b << 16); // COLORREF = 0x00BBGGRR
+        }
+
+        if (ToColorRef(caption) is int c)
+        {
+            DwmSetWindowAttribute(Handle, 35 /* DWMWA_CAPTION_COLOR */, ref c, sizeof(int));
+            DwmSetWindowAttribute(Handle, 34 /* DWMWA_BORDER_COLOR */, ref c, sizeof(int));
+        }
+        if (ToColorRef(text) is int t)
+            DwmSetWindowAttribute(Handle, 36 /* DWMWA_TEXT_COLOR */, ref t, sizeof(int));
+    }
+
     private void ToggleClientSettings()
     {
         if (_core == null || _onLocalPage) return;
@@ -356,8 +377,15 @@ public sealed class MainForm : Form
             try
             {
                 var msg = JsonNode.Parse(e.WebMessageAsJson);
-                if ((string?)msg?["jdx"] == "save")
-                    await SaveClientSettingsAsync(msg["settings"]?.DeepClone());
+                switch ((string?)msg?["jdx"])
+                {
+                    case "save":
+                        await SaveClientSettingsAsync(msg!["settings"]?.DeepClone());
+                        break;
+                    case "chrome":
+                        SetTitleBarColors((string?)msg!["caption"], (string?)msg["text"]);
+                        break;
+                }
             }
             catch (Exception ex)
             {

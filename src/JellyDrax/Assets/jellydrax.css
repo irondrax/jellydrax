@@ -28,7 +28,24 @@ html.jdx .backgroundContainer:not(.backgroundContainer-transparent) {
 /* Keine Hintergrundbilder aus der Mediathek */
 html.jdx.jdx-nobackdrop .backdropContainer { display: none !important; }
 html.jdx.jdx-nobackdrop .backgroundContainer.withBackdrop { opacity: 1 !important; }
-html.jdx.jdx-nobackdrop .itemBackdrop { display: none !important; }
+/* Detailseite: Das Banner bestimmt das Layout (Logo, Poster, Infozeile) und bleibt daher
+   erhalten – im Modus "Farbe" wird nur das Bild durch einen Farbverlauf ersetzt. */
+html.jdx[data-jdx-banner="color"] .itemBackdrop {
+  background-image:
+    linear-gradient(180deg, rgba(var(--jdx-bg-rgb), 0) 35%, var(--jdx-bg) 100%),
+    radial-gradient(120% 140% at 15% 0%, rgba(var(--jdx-accent-rgb), 0.38), transparent 60%),
+    radial-gradient(100% 120% at 90% 10%, rgba(var(--jdx-accent2-rgb), 0.26), transparent 60%) !important;
+  background-attachment: scroll !important;
+  background-color: var(--jdx-surface) !important;
+}
+html.jdx[data-jdx-banner="image"] .itemBackdrop { position: relative; }
+html.jdx[data-jdx-banner="image"] .itemBackdrop::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(var(--jdx-bg-rgb), 0) 45%, var(--jdx-bg) 100%);
+  pointer-events: none;
+}
 
 /* --------------------------------------------------------------- Schrift */
 
@@ -71,6 +88,50 @@ html.jdx .skinHeader:not(.osdHeader) .emby-tab-button:hover {
 }
 
 html.jdx .jdx-headerBtn .material-icons { color: var(--jdx-accent); }
+
+/* Moderne Kopfleiste (Jellyfin 12: MUI-AppBar). Beim Video-Player (transparentDocument) unverändert. */
+html.jdx:not(.transparentDocument) .MuiAppBar-root.MuiAppBar-colorDefault {
+  background: var(--jdx-surface) !important;
+  background-image: none !important;
+  color: var(--jdx-text) !important;
+  border-bottom: 1px solid rgba(var(--jdx-text-rgb), 0.06);
+  box-shadow: 0 8px 24px -16px rgba(0, 0, 0, 0.8) !important;
+}
+html.jdx.jdx-glass:not(.transparentDocument) .MuiAppBar-root.MuiAppBar-colorDefault {
+  background: rgba(var(--jdx-surface-rgb), 0.7) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  backdrop-filter: blur(18px) saturate(1.4);
+}
+html.jdx:not(.transparentDocument) .MuiAppBar-root.MuiAppBar-colorTransparent {
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0)) !important;
+  color: #fff !important;
+}
+html.jdx:not(.transparentDocument) .MuiAppBar-root .MuiButton-root[aria-current="page"],
+html.jdx:not(.transparentDocument) .MuiAppBar-root a.active { color: var(--jdx-accent) !important; }
+html.jdx .jdx-toolbarBtn svg { width: 24px; height: 24px; fill: currentColor; }
+
+/* Ersatz-Button, falls keine Kopfleiste erkannt wird */
+#jdx-fab {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 9999;
+  width: 46px;
+  height: 46px;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  color: var(--jdx-on-accent);
+  background: linear-gradient(135deg, var(--jdx-accent), var(--jdx-accent2));
+  box-shadow: 0 10px 24px -8px rgba(var(--jdx-accent-rgb), 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.85;
+}
+#jdx-fab:hover { opacity: 1; }
+#jdx-fab svg { width: 24px; height: 24px; fill: currentColor; }
+html.transparentDocument #jdx-fab { display: none; }
 
 /* ----------------------------------------------------------- Seitenmenü */
 
@@ -158,71 +219,78 @@ html.jdx:not([data-jdx-hover="none"]) .verticalSection .emby-scroller {
   margin-bottom: -8px;
 }
 
-@media (hover: hover) {
-  html.jdx .card .cardScalable {
-    transition: transform var(--jdx-t) var(--jdx-ease), box-shadow var(--jdx-t) var(--jdx-ease),
-      outline-color var(--jdx-t) var(--jdx-ease);
-    outline: 2px solid transparent;
-    outline-offset: -2px;
-  }
-  html.jdx .card .cardImageContainer {
-    transition: transform calc(var(--jdx-t) * 1.8) var(--jdx-ease), filter var(--jdx-t);
-  }
-
-  html.jdx .card:hover .cardText { position: relative; z-index: 3; }
-
-  /* Elegant – angelehnt an ElegantFin: leichtes Vergrößern, heller Rahmen, Schatten */
-  html.jdx[data-jdx-hover="elegant"] .card:hover .cardScalable {
-    transform: scale(1.045);
-    box-shadow: 0 18px 34px -10px rgba(0, 0, 0, 0.7);
-    outline-color: rgba(255, 255, 255, 0.92);
-    z-index: 2;
-  }
-  html.jdx[data-jdx-hover="elegant"] .card:hover .cardImageContainer { filter: brightness(1.08); }
-
-  /* Anheben */
-  html.jdx[data-jdx-hover="lift"] .card:hover .cardScalable {
-    transform: translateY(-8px);
-    box-shadow: 0 22px 30px -14px rgba(0, 0, 0, 0.8);
-  }
-
-  /* Bild-Zoom innerhalb des Rahmens */
-  html.jdx[data-jdx-hover="zoom"] .card .cardScalable { overflow: hidden; }
-  html.jdx[data-jdx-hover="zoom"] .card:hover .cardImageContainer {
-    transform: scale(1.12);
-    filter: brightness(1.1);
-  }
-
-  /* Leuchten in der Akzentfarbe */
-  html.jdx[data-jdx-hover="glow"] .card:hover .cardScalable {
-    transform: scale(1.025);
-    outline-color: var(--jdx-accent);
-    box-shadow: 0 0 26px 2px rgba(var(--jdx-accent-rgb), 0.55);
-    z-index: 2;
-  }
-
-  /* 3D-Kippen */
-  html.jdx[data-jdx-hover="tilt"] .card:hover .cardScalable {
-    transform: perspective(700px) rotateX(7deg) translateY(-6px) scale(1.03);
-    box-shadow: 0 24px 30px -16px rgba(0, 0, 0, 0.85);
-    z-index: 2;
-  }
-
-  /* Lichtreflex */
-  html.jdx[data-jdx-hover="shine"] .card .cardScalable { overflow: hidden; }
-  html.jdx[data-jdx-hover="shine"] .card .cardScalable::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    z-index: 3;
-    background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.28) 46%, transparent 62%);
-    transform: translateX(-110%);
-    transition: transform calc(var(--jdx-t) * 2.2) var(--jdx-ease);
-  }
-  html.jdx[data-jdx-hover="shine"] .card:hover .cardScalable { transform: translateY(-4px); }
-  html.jdx[data-jdx-hover="shine"] .card:hover .cardScalable::after { transform: translateX(110%); }
+html.jdx .card .cardScalable {
+  transition: transform calc(0.3s * var(--jdx-speed)) var(--jdx-ease), box-shadow calc(0.3s * var(--jdx-speed)),
+    border-color calc(0.2s * var(--jdx-speed)), outline-color calc(0.2s * var(--jdx-speed));
 }
+html.jdx .card .cardImageContainer { transition: transform calc(0.375s * var(--jdx-speed)) ease, filter calc(0.3s * var(--jdx-speed)); }
+html.jdx .card:hover .cardText { position: relative; z-index: 3; }
+
+/* Elegant – Nachbau des ElegantFin-Effekts: feiner Rahmen, der beim Überfahren weiß wird,
+   leichtes Vergrößern von Karte und Bild und ein Lichtstreifen, der über das Bild läuft. */
+html.jdx[data-jdx-hover="elegant"] .card .cardBox:not(.visualCardBox) .cardScalable,
+html.jdx[data-jdx-hover="elegant"] .card .cardBox.visualCardBox {
+  border: 0.12em solid rgba(var(--jdx-text-rgb), 0.1) !important;
+  overflow: hidden !important;
+  box-shadow: 0 1px 6px 0 rgba(0, 0, 0, 0.3);
+}
+html.jdx[data-jdx-hover="elegant"] .card .cardBox.visualCardBox .cardScalable { border: 0 !important; border-radius: 0 !important; }
+html.jdx[data-jdx-hover="elegant"] .card:hover .cardBox:not(.visualCardBox) .cardScalable,
+html.jdx[data-jdx-hover="elegant"] .card:hover .cardBox.visualCardBox,
+html.jdx[data-jdx-hover="elegant"] .card:focus-visible .cardBox .cardScalable {
+  border-color: #fff !important;
+}
+html.jdx[data-jdx-hover="elegant"] .card:hover .cardScalable { transform: scale(1.02); }
+html.jdx[data-jdx-hover="elegant"] .card:hover .cardImageContainer { transform: scale(1.025); }
+html.jdx[data-jdx-hover="elegant"] .card .cardScalable:active { transform: scale(1); transition-duration: 75ms; }
+
+html.jdx:is([data-jdx-hover="elegant"], [data-jdx-hover="shine"]) .card .cardScalable::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background: linear-gradient(0deg, transparent, rgba(255, 255, 255, 0.35) 45%, rgba(255, 255, 255, 0.35) 55%, transparent);
+  transform: translateY(-100%);
+  transition: transform calc(0.65s * var(--jdx-speed)) ease;
+}
+html.jdx:is([data-jdx-hover="elegant"], [data-jdx-hover="shine"]) .card:hover .cardScalable::after { transform: translateY(100%); }
+/* Querformat-Karten: Streifen läuft horizontal */
+html.jdx:is([data-jdx-hover="elegant"], [data-jdx-hover="shine"]) :is(.backdropCard, .overflowBackdropCard, .smallBackdropCard, .overflowSmallBackdropCard) .cardScalable::after {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35) 45%, rgba(255, 255, 255, 0.35) 55%, transparent);
+  transform: translateX(-100%);
+}
+html.jdx:is([data-jdx-hover="elegant"], [data-jdx-hover="shine"]) :is(.backdropCard, .overflowBackdropCard, .smallBackdropCard, .overflowSmallBackdropCard):hover .cardScalable::after { transform: translateX(100%); }
+
+/* Anheben */
+html.jdx[data-jdx-hover="lift"] .card:hover .cardScalable {
+  transform: translateY(-8px);
+  box-shadow: 0 22px 30px -14px rgba(0, 0, 0, 0.8);
+}
+
+/* Bild-Zoom innerhalb des Rahmens */
+html.jdx[data-jdx-hover="zoom"] .card .cardScalable { overflow: hidden; }
+html.jdx[data-jdx-hover="zoom"] .card:hover .cardImageContainer { transform: scale(1.12); filter: brightness(1.1); }
+
+/* Leuchten in der Akzentfarbe */
+html.jdx[data-jdx-hover="glow"] .card .cardScalable { outline: 2px solid transparent; outline-offset: -2px; }
+html.jdx[data-jdx-hover="glow"] .card:hover .cardScalable {
+  transform: scale(1.025);
+  outline-color: var(--jdx-accent);
+  box-shadow: 0 0 26px 2px rgba(var(--jdx-accent-rgb), 0.55);
+  z-index: 2;
+}
+
+/* 3D-Kippen */
+html.jdx[data-jdx-hover="tilt"] .card:hover .cardScalable {
+  transform: perspective(700px) rotateX(7deg) translateY(-6px) scale(1.03);
+  box-shadow: 0 24px 30px -16px rgba(0, 0, 0, 0.85);
+  z-index: 2;
+}
+
+/* Lichtreflex (Streifen ohne Rahmen) */
+html.jdx[data-jdx-hover="shine"] .card .cardScalable { overflow: hidden; }
+html.jdx[data-jdx-hover="shine"] .card:hover .cardScalable { transform: translateY(-4px); }
 
 /* --------------------------------------------------------- Seitenwechsel */
 
@@ -273,7 +341,95 @@ html.jdx.jdx-hide-first-title #homeTab .section0 .sectionTitle { display: none !
 /* Media Bar eines Server-Plugins ausblenden (eigene Media Bar wird genutzt) */
 html.jdx.jdx-hide-plugin-bar #slides-container,
 html.jdx.jdx-hide-plugin-bar .slides-container,
-html.jdx.jdx-hide-plugin-bar #mediaBarContainer { display: none !important; }
+html.jdx.jdx-hide-plugin-bar #mediaBarContainer,
+html.jdx.jdx-hide-plugin-bar .bar-loading { display: none !important; }
+/* Media Bar (Enhanced) schiebt die Rubriken per "top: 65–74vh" nach unten -> zurücksetzen */
+html.jdx.jdx-hide-plugin-bar .homeSectionsContainer,
+html.jdx.jdx-hide-plugin-bar body.jellyfin-v12 .homeSectionsContainer {
+  top: 0 !important;
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+
+/* =====================================================================
+   Glas-Optik (Theme "Glass" oder Schalter "Glas-Optik")
+   ===================================================================== */
+
+html.jdx.jdx-glassmode {
+  --jdx-glass-bg: rgba(255, 255, 255, 0.06);
+  --jdx-glass-bg-strong: rgba(255, 255, 255, 0.1);
+  --jdx-glass-border: rgba(255, 255, 255, 0.14);
+  --jdx-glass-blur: blur(20px) saturate(1.6);
+}
+
+/* farbige, weiche Lichtflächen als Hintergrund (keine Medienbilder) */
+html.jdx.jdx-glassmode .backgroundContainer:not(.backgroundContainer-transparent) {
+  background-image:
+    radial-gradient(900px 700px at 8% 10%, rgba(var(--jdx-accent-rgb), 0.35), transparent 60%),
+    radial-gradient(800px 700px at 92% 18%, rgba(var(--jdx-accent2-rgb), 0.28), transparent 60%),
+    radial-gradient(900px 800px at 55% 105%, rgba(var(--jdx-accent-rgb), 0.18), transparent 60%) !important;
+}
+html.jdx.jdx-glassmode:not(.transparentDocument) body {
+  background-image:
+    radial-gradient(900px 700px at 8% 10%, rgba(var(--jdx-accent-rgb), 0.35), transparent 60%),
+    radial-gradient(800px 700px at 92% 18%, rgba(var(--jdx-accent2-rgb), 0.28), transparent 60%),
+    radial-gradient(900px 800px at 55% 105%, rgba(var(--jdx-accent-rgb), 0.18), transparent 60%) !important;
+  background-attachment: fixed !important;
+}
+
+html.jdx.jdx-glassmode:not(.transparentDocument) .MuiAppBar-root.MuiAppBar-colorDefault,
+html.jdx.jdx-glassmode .skinHeader.skinHeader-withBackground:not(.osdHeader) {
+  background: var(--jdx-glass-bg) !important;
+  -webkit-backdrop-filter: var(--jdx-glass-blur) !important;
+  backdrop-filter: var(--jdx-glass-blur) !important;
+  border-bottom: 1px solid var(--jdx-glass-border) !important;
+}
+
+html.jdx.jdx-glassmode .homeLibraryButton,
+html.jdx.jdx-glassmode .mainAnimatedPage:not(#videoOsdPage) .paperList,
+html.jdx.jdx-glassmode .mainAnimatedPage:not(#videoOsdPage) .visualCardBox,
+html.jdx.jdx-glassmode .mainAnimatedPage:not(#videoOsdPage) .detailRibbon,
+html.jdx.jdx-glassmode .mainAnimatedPage:not(#videoOsdPage) .listItem.listItem-border,
+html.jdx.jdx-glassmode .mainDrawer,
+html.jdx.jdx-glassmode .MuiDrawer-paper,
+html.jdx.jdx-glassmode .MuiMenu-paper,
+html.jdx.jdx-glassmode .MuiPopover-paper,
+html.jdx.jdx-glassmode .dialog:not(.dialog-fullscreen),
+html.jdx.jdx-glassmode .actionSheet {
+  background: var(--jdx-glass-bg) !important;
+  -webkit-backdrop-filter: var(--jdx-glass-blur);
+  backdrop-filter: var(--jdx-glass-blur);
+  border: 1px solid var(--jdx-glass-border) !important;
+}
+html.jdx.jdx-glassmode .homeLibraryButton:hover { background: var(--jdx-glass-bg-strong) !important; border-color: rgba(255, 255, 255, 0.35) !important; }
+html.jdx.jdx-glassmode .card .cardBox:not(.visualCardBox) .cardScalable {
+  border: 1px solid var(--jdx-glass-border);
+  box-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+html.jdx.jdx-glassmode .emby-input,
+html.jdx.jdx-glassmode .emby-select,
+html.jdx.jdx-glassmode .emby-textarea {
+  background: var(--jdx-glass-bg) !important;
+  border: 1px solid var(--jdx-glass-border) !important;
+}
+html.jdx.jdx-glassmode .jdx-btn:not(.jdx-btn-primary) { border: 1px solid var(--jdx-glass-border); }
+
+/* Einstellungsfenster in Glas-Optik */
+html.jdx.jdx-glassmode #jdx-settings .jdx-panel {
+  background: rgba(var(--jdx-bg-rgb), 0.55);
+  -webkit-backdrop-filter: blur(30px) saturate(1.6);
+  backdrop-filter: blur(30px) saturate(1.6);
+  border-color: var(--jdx-glass-border);
+}
+html.jdx.jdx-glassmode #jdx-settings nav { background: rgba(255, 255, 255, 0.04); }
+html.jdx.jdx-glassmode #jdx-settings .jdx-row,
+html.jdx.jdx-glassmode #jdx-settings .jdx-color,
+html.jdx.jdx-glassmode #jdx-settings .jdx-tile,
+html.jdx.jdx-glassmode #jdx-settings .jdx-theme { background: rgba(255, 255, 255, 0.06); border-color: var(--jdx-glass-border); }
+
+/* Media Bar: Glas-Elemente */
+html.jdx.jdx-glassmode .jdx-mb[data-style="split"] .jdx-slide,
+html.jdx.jdx-glassmode .jdx-mb[data-style="split"] { background: rgba(var(--jdx-surface-rgb), 0.55); }
 
 /* =====================================================================
    Media Bar

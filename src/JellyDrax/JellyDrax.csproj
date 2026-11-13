@@ -12,7 +12,7 @@
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
-    <Version>2.0.0</Version>
+    <Version>2.1.0</Version>
     <Product>JellyDrax</Product>
     <Description>JellyDrax – Jellyfin-Client für Windows mit eigenem Design und Media Bar.</Description>
 
