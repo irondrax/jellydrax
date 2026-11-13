@@ -1,17 +1,20 @@
 using System.Diagnostics;
+using System.Net.Http;
+using System.Text;
+using System.Text.Json.Nodes;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
 
-namespace JellyfinDesktop;
+namespace JellyDrax;
 
 /// <summary>
 /// Hauptfenster: ein WebView2 (Microsoft Edge/Chromium), das das Web-Interface
-/// direkt vom Jellyfin-Server lädt (&lt;server&gt;/web/). Dadurch werden Server-Plugins,
-/// Branding-/Custom-CSS, Themes und JavaScript-Erweiterungen genau so ausgeführt
-/// wie in einem normalen Browser.
+/// direkt vom Jellyfin-Server lädt (&lt;server&gt;/web/). Server-Plugins und der
+/// Jellyfin-Player laufen unverändert; darüber legt JellyDrax (jellydrax.js/.css)
+/// ein eigenes Design, eine eigene Media Bar und ein Einstellungsfenster.
 /// </summary>
 public sealed class MainForm : Form
 {
@@ -26,6 +29,11 @@ public sealed class MainForm : Form
     private bool _pendingLocalPage;
     private bool _onLocalPage;
     private CancellationTokenSource? _probeCts;
+    private CoreWebView2Environment? _env;
+    private string? _clientScriptId;
+    private readonly string _clientJs = LoadResource("jellydrax.js");
+    private readonly string _clientCss = LoadResource("jellydrax.css");
+    private readonly HttpClient _http;
 
     // Vollbild
     private bool _fullscreen;          // Fenster ist aktuell im Vollbild
@@ -42,9 +50,16 @@ public sealed class MainForm : Form
             _settings.Save();
         }
         _startServer = startServer;
-        _pageTemplate = LoadPageTemplate();
+        _pageTemplate = LoadResource("app.html");
+        _http = new HttpClient(new HttpClientHandler
+        {
+            // gleiche Zertifikatsregeln wie im WebView (selbstsignierte nur nach Bestätigung)
+            ServerCertificateCustomValidationCallback = (msg, _, _, errors) =>
+                errors == System.Net.Security.SslPolicyErrors.None
+                || (msg.RequestUri != null && _settings.IsCertificateTrusted(msg.RequestUri.Host)),
+        }) { Timeout = TimeSpan.FromSeconds(15) };
 
-        Text = "Jellyfin";
+        Text = "JellyDrax";
         BackColor = Background;
         MinimumSize = new Size(640, 400);
         try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { /* ignorieren */ }
@@ -72,7 +87,7 @@ public sealed class MainForm : Form
             var answer = MessageBox.Show(this,
                 "Die Microsoft Edge WebView2 Runtime wurde nicht gefunden.\n\n" +
                 "Unter Windows 11 ist sie normalerweise vorinstalliert. Jetzt die Download-Seite öffnen?",
-                "Jellyfin", MessageBoxButtons.YesNo, MessageBoxIcon.Error);
+                "JellyDrax", MessageBoxButtons.YesNo, MessageBoxIcon.Error);
             if (answer == DialogResult.Yes)
                 OpenExternal("https://developer.microsoft.com/microsoft-edge/webview2/");
             Close();
@@ -82,7 +97,7 @@ public sealed class MainForm : Form
         var options = new CoreWebView2EnvironmentOptions(
             // "Nächste Folge" & Hintergrundmusik sollen ohne Klick starten dürfen
             additionalBrowserArguments: "--autoplay-policy=no-user-gesture-required");
-        var env = await CoreWebView2Environment.CreateAsync(
+        var env = _env = await CoreWebView2Environment.CreateAsync(
             browserExecutableFolder: null,
             userDataFolder: Path.Combine(AppSettings.DataDir, "WebView2"),
             options: options);
@@ -106,6 +121,13 @@ public sealed class MainForm : Form
         _core.WebMessageReceived += OnWebMessageReceived;
         _core.DocumentTitleChanged += (_, _) => UpdateTitle();
         _core.ServerCertificateErrorDetected += OnServerCertificateError;
+
+        // Branding-CSS des Servers abfangen (Jellyfin 10.11+/12.x lädt es über /Branding/Configuration)
+        _core.AddWebResourceRequestedFilter("*/Branding/Configuration*", CoreWebView2WebResourceContext.All);
+        _core.AddWebResourceRequestedFilter("*/Branding/Css*", CoreWebView2WebResourceContext.All);
+        _core.WebResourceRequested += OnWebResourceRequested;
+
+        await RegisterClientScriptAsync();
 
         _web.ZoomFactor = Math.Clamp(_settings.Zoom, 0.25, 5.0);
 
@@ -212,16 +234,94 @@ public sealed class MainForm : Form
 
     private void UpdateTitle()
     {
-        var title = _core?.DocumentTitle;
-        Text = _onLocalPage || string.IsNullOrWhiteSpace(title) ? "Jellyfin" : title;
+        var title = _core?.DocumentTitle?.Trim();
+        Text = _onLocalPage || string.IsNullOrWhiteSpace(title) || title == "Jellyfin"
+            ? "JellyDrax"
+            : title + " – JellyDrax";
+    }
+
+    // ----------------------------------------------------- JellyDrax-Design
+
+    /// <summary>
+    /// Fügt jellydrax.js (inkl. CSS und gespeicherter Einstellungen) in jede Seite ein.
+    /// Das Skript prüft selbst, ob es sich um das Jellyfin-Web-Interface handelt.
+    /// </summary>
+    private async Task RegisterClientScriptAsync()
+    {
+        if (_core == null) return;
+        if (_clientScriptId != null)
+            _core.RemoveScriptToExecuteOnDocumentCreated(_clientScriptId);
+
+        var version = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "?";
+        var bootstrap = new StringBuilder()
+            .Append("window.__JDX_VERSION__=").Append(JsonSerializer.Serialize(version)).Append(';')
+            .Append("window.__JDX_CSS__=").Append(JsonSerializer.Serialize(_clientCss)).Append(';')
+            .Append("window.__JDX_SETTINGS__=").Append(_settings.Client?.ToJsonString() ?? "null").Append(";\n")
+            .Append(_clientJs)
+            .ToString();
+        _clientScriptId = await _core.AddScriptToExecuteOnDocumentCreatedAsync(bootstrap);
+    }
+
+    private async void OnWebResourceRequested(object? sender, CoreWebView2WebResourceRequestedEventArgs e)
+    {
+        if (_env == null || !_settings.IgnoreServerCss) return;
+        if (!Uri.TryCreate(e.Request.Uri, UriKind.Absolute, out var uri) || !IsServerUri(uri)) return;
+
+        if (uri.AbsolutePath.Contains("/Branding/Css", StringComparison.OrdinalIgnoreCase))
+        {
+            e.Response = _env.CreateWebResourceResponse(new MemoryStream(), 200, "OK", "Content-Type: text/css");
+            return;
+        }
+        if (!string.Equals(e.Request.Method, "GET", StringComparison.OrdinalIgnoreCase)) return;
+
+        // Konfiguration selbst abrufen und nur das CustomCss leeren – alles andere bleibt unverändert.
+        var deferral = e.GetDeferral();
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, uri);
+            foreach (var header in e.Request.Headers)
+            {
+                if (header.Key.Equals("Host", StringComparison.OrdinalIgnoreCase)) continue;
+                request.Headers.TryAddWithoutValidation(header.Key, header.Value);
+            }
+            using var response = await _http.SendAsync(request);
+            if (!response.IsSuccessStatusCode) return;
+            if (JsonNode.Parse(await response.Content.ReadAsStringAsync()) is not JsonObject json) return;
+            json["CustomCss"] = "";
+            var body = new MemoryStream(Encoding.UTF8.GetBytes(json.ToJsonString()));
+            e.Response = _env.CreateWebResourceResponse(body, 200, "OK",
+                "Content-Type: application/json; charset=utf-8\nCache-Control: no-store");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine(ex); // ohne Response lädt WebView2 die Originaldaten
+        }
+        finally
+        {
+            deferral.Complete();
+        }
+    }
+
+    private async Task SaveClientSettingsAsync(JsonNode? settings)
+    {
+        if (settings is not JsonObject obj) return;
+        _settings.Client = obj;
+        _settings.Save();
+        await RegisterClientScriptAsync(); // beim nächsten Laden aktuelle Werte
+    }
+
+    private void ToggleClientSettings()
+    {
+        if (_core == null || _onLocalPage) return;
+        _ = _core.ExecuteScriptAsync("window.JellyDrax && window.JellyDrax.toggleSettings()");
     }
 
     // ------------------------------------------------- Lokale Seiten (Verbinden/Fehler)
 
-    private static string LoadPageTemplate()
+    private static string LoadResource(string name)
     {
-        using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("app.html")
-                           ?? throw new InvalidOperationException("Ressource app.html fehlt.");
+        using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(name)
+                           ?? throw new InvalidOperationException($"Ressource {name} fehlt.");
         using var reader = new StreamReader(stream);
         return reader.ReadToEnd();
     }
@@ -250,7 +350,23 @@ public sealed class MainForm : Form
 
     private async void OnWebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
     {
-        // Nur Nachrichten der eigenen lokalen Seite verarbeiten, nie vom Server
+        // JellyDrax-Einstellungen aus dem Web-Interface des eigenen Servers
+        if (!_onLocalPage && Uri.TryCreate(e.Source, UriKind.Absolute, out var source) && IsServerUri(source))
+        {
+            try
+            {
+                var msg = JsonNode.Parse(e.WebMessageAsJson);
+                if ((string?)msg?["jdx"] == "save")
+                    await SaveClientSettingsAsync(msg["settings"]?.DeepClone());
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine(ex);
+            }
+            return;
+        }
+
+        // Sonst nur Nachrichten der eigenen lokalen Seite verarbeiten
         if (!_onLocalPage || e.Source.StartsWith("http", StringComparison.OrdinalIgnoreCase)) return;
 
         try
@@ -394,6 +510,9 @@ public sealed class MainForm : Form
             case Keys.Control | Keys.Shift | Keys.S:
                 ShowConnectPage();
                 return true;
+            case Keys.Control | Keys.Oemcomma:
+                ToggleClientSettings();
+                return true;
             case Keys.F12:
             case Keys.Control | Keys.Shift | Keys.I:
                 _core?.OpenDevToolsWindow();
@@ -425,7 +544,7 @@ public sealed class MainForm : Form
     private const int WM_SYSCOMMAND = 0x0112;
     private const uint MF_STRING = 0x0000, MF_SEPARATOR = 0x0800;
     private const int CmdChangeServer = 0x0100, CmdReload = 0x0110, CmdClearCache = 0x0120,
-        CmdFullscreen = 0x0130, CmdDevTools = 0x0140, CmdAbout = 0x0150;
+        CmdFullscreen = 0x0130, CmdDevTools = 0x0140, CmdAbout = 0x0150, CmdDesign = 0x0160;
 
     [DllImport("user32.dll")]
     private static extern IntPtr GetSystemMenu(IntPtr hWnd, bool bRevert);
@@ -446,13 +565,14 @@ public sealed class MainForm : Form
 
         var menu = GetSystemMenu(Handle, false);
         AppendMenu(menu, MF_SEPARATOR, UIntPtr.Zero, null);
+        AppendMenu(menu, MF_STRING, (UIntPtr)CmdDesign, "JellyDrax-Design…\tStrg+,");
         AppendMenu(menu, MF_STRING, (UIntPtr)CmdChangeServer, "Server wechseln…\tStrg+Umschalt+S");
         AppendMenu(menu, MF_STRING, (UIntPtr)CmdReload, "Neu laden\tF5");
         AppendMenu(menu, MF_STRING, (UIntPtr)CmdClearCache, "Cache leeren und neu laden");
         AppendMenu(menu, MF_STRING, (UIntPtr)CmdFullscreen, "Vollbild\tF11");
         AppendMenu(menu, MF_STRING, (UIntPtr)CmdDevTools, "Entwicklertools\tF12");
         AppendMenu(menu, MF_SEPARATOR, UIntPtr.Zero, null);
-        AppendMenu(menu, MF_STRING, (UIntPtr)CmdAbout, "Über Jellyfin Desktop");
+        AppendMenu(menu, MF_STRING, (UIntPtr)CmdAbout, "Über JellyDrax");
     }
 
     protected override void WndProc(ref Message m)
@@ -467,6 +587,7 @@ public sealed class MainForm : Form
                 case CmdFullscreen: ToggleFullscreen(); return;
                 case CmdDevTools: _core?.OpenDevToolsWindow(); return;
                 case CmdAbout: ShowAbout(); return;
+                case CmdDesign: ToggleClientSettings(); return;
             }
         }
         base.WndProc(ref m);
@@ -479,14 +600,15 @@ public sealed class MainForm : Form
         try { runtime = CoreWebView2Environment.GetAvailableBrowserVersionString(); }
         catch { runtime = "?"; }
         MessageBox.Show(this,
-            $"Jellyfin Desktop {version}\n" +
+            $"JellyDrax {version}\n" +
             $"WebView2 Runtime: {runtime}\n" +
             $"Server: {_settings.ServerUrl ?? "–"}\n" +
             $"Daten: {AppSettings.DataDir}\n\n" +
             "F11 Vollbild · F5 Neu laden · Strg+F5 ohne Cache\n" +
-            "Strg+Umschalt+S Server wechseln · F12 Entwicklertools\n" +
+            "Strg+, Design & Media Bar · Strg+Umschalt+S Server wechseln\n" +
+            "F12 Entwicklertools · " +
             "Strg + Mausrad / Strg+0 Zoom",
-            "Über Jellyfin Desktop", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            "Über JellyDrax", MessageBoxButtons.OK, MessageBoxIcon.Information);
     }
 
     // ------------------------------------------------------------ Fensterzustand

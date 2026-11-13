@@ -1,21 +1,22 @@
-; Installer für Jellyfin Desktop
-; Bauen:  makensis -DVERSION=1.0.0 installer/JellyfinDesktop.nsi
-; Erwartet die veröffentlichte EXE unter dist\JellyfinDesktop.exe
+; Installer für JellyDrax
+; Bauen:  makensis -DVERSION=2.0.0 installer/JellyDrax.nsi
+; Erwartet die veröffentlichte EXE unter dist\JellyDrax.exe
 
 Unicode true
 SetCompressor /SOLID lzma
 RequestExecutionLevel user          ; Installation pro Benutzer, keine Administratorrechte nötig
 
 !ifndef VERSION
-  !define VERSION "1.0.0"
+  !define VERSION "2.0.0"
 !endif
-!define APPNAME     "Jellyfin Desktop"
-!define EXENAME     "JellyfinDesktop.exe"
-!define UNINSTKEY   "Software\Microsoft\Windows\CurrentVersion\Uninstall\JellyfinDesktop"
+!define APPNAME      "JellyDrax"
+!define EXENAME      "JellyDrax.exe"
+!define UNINSTKEY    "Software\Microsoft\Windows\CurrentVersion\Uninstall\JellyDrax"
+!define OLDUNINSTKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\JellyfinDesktop"
 !define WEBVIEW2GUID "{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
 
 Name "${APPNAME}"
-OutFile "..\dist\JellyfinDesktop-Setup-${VERSION}.exe"
+OutFile "..\dist\JellyDrax-Setup-${VERSION}.exe"
 InstallDir "$LOCALAPPDATA\Programs\${APPNAME}"
 InstallDirRegKey HKCU "${UNINSTKEY}" "InstallLocation"
 BrandingText "${APPNAME} ${VERSION}"
@@ -30,9 +31,10 @@ VIAddVersionKey /LANG=1031 "LegalCopyright" ""
 !include "MUI2.nsh"
 !include "LogicLib.nsh"
 
-!define MUI_ICON   "..\src\JellyfinDesktop\Assets\app.ico"
-!define MUI_UNICON "..\src\JellyfinDesktop\Assets\app.ico"
+!define MUI_ICON   "..\src\JellyDrax\Assets\app.ico"
+!define MUI_UNICON "..\src\JellyDrax\Assets\app.ico"
 !define MUI_ABORTWARNING
+!define MUI_WELCOMEPAGE_TEXT "Dieser Assistent installiert ${APPNAME} ${VERSION} – einen Jellyfin-Client mit eigenem Design, Themes und Media Bar.$\r$\n$\r$\nEine vorhandene Installation von $\"Jellyfin Desktop$\" wird dabei ersetzt; Server, Anmeldung und Einstellungen bleiben erhalten.$\r$\n$\r$\nKlicken Sie auf Weiter, um fortzufahren."
 !define MUI_FINISHPAGE_RUN "$INSTDIR\${EXENAME}"
 !define MUI_FINISHPAGE_RUN_TEXT "${APPNAME} jetzt starten"
 
@@ -65,6 +67,17 @@ Section "${APPNAME} (erforderlich)" SecMain
         Abort
       ${EndIf}
     ${EndIf}
+
+  ; Vorgängerversion "Jellyfin Desktop" still entfernen (Daten bleiben erhalten
+  ; und werden von JellyDrax beim ersten Start übernommen)
+  ReadRegStr $0 HKCU "${OLDUNINSTKEY}" "InstallLocation"
+  ${If} $0 != ""
+  ${AndIf} ${FileExists} "$0\Uninstall.exe"
+    DetailPrint "Entferne Jellyfin Desktop …"
+    ExecWait '"$0\Uninstall.exe" /S _?=$0'
+    Delete "$0\Uninstall.exe"
+    RMDir "$0"
+  ${EndIf}
 
   File "..\dist\${EXENAME}"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
@@ -124,11 +137,11 @@ Section "Uninstall"
   Delete "$DESKTOP\${APPNAME}.lnk"
   DeleteRegKey HKCU "${UNINSTKEY}"
 
-  ; Anmeldung, Einstellungen und Browser-Cache optional entfernen
+  ; Anmeldung, Einstellungen, Design und Browser-Cache optional entfernen
   IfSilent keepdata
   MessageBox MB_YESNO|MB_ICONQUESTION|MB_DEFBUTTON2 \
-    "Auch die gespeicherten Daten löschen (Serveradresse, Anmeldung, Cache)?" \
+    "Auch die gespeicherten Daten löschen (Serveradresse, Anmeldung, Design-Einstellungen, Cache)?" \
     IDNO keepdata
-  RMDir /r "$LOCALAPPDATA\JellyfinDesktop"
+  RMDir /r "$LOCALAPPDATA\JellyDrax"
   keepdata:
 SectionEnd

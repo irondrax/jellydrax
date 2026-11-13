@@ -3,7 +3,7 @@ using System.Security.Authentication;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
-namespace JellyfinDesktop;
+namespace JellyDrax;
 
 public sealed record ServerInfo(string BaseUrl, string Name, string Version, string? Id);
 

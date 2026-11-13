@@ -1,66 +1,92 @@
-# Jellyfin Desktop (WebView2)
+# JellyDrax
 
-Schlanker Jellyfin-Client für **Windows 11** (und Windows 10). Die App ist ein natives Fenster mit
-Microsoft Edge **WebView2** und lädt das Web-Interface **direkt vom eigenen Jellyfin-Server**
-(`<server>/web/`). Dadurch funktioniert alles, was der Server ausliefert, genau wie im Browser:
+Jellyfin-Client für **Windows 11** (und Windows 10) mit **eigenem Design**, **Themes** und einer
+**Media Bar** auf der Startseite. Die App ist ein natives Fenster mit Microsoft Edge **WebView2** und lädt
+das Web-Interface **direkt vom eigenen Jellyfin-Server** (`<server>/web/`). Darüber legt JellyDrax sein
+eigenes Erscheinungsbild – unabhängig vom Branding-CSS des Servers.
 
-- **Alle Plugins mit Web-Anteil** – z. B. JavaScript Injector, Intro Skipper, Custom Tabs,
-  Jellyfin Enhanced, Media Bar, SSO-Login (Weiterleitungen zum Identity-Provider bleiben im Fenster).
-- **Server-CSS / Themes** – das unter *Dashboard → Allgemein → Branding* hinterlegte Custom CSS
-  (inkl. `@import` von Themes wie ElegantFin, Ultrachromic …) wird vom Web-Client selbst geladen.
-- **Unabhängig von der Server-Version** – da der Server sein eigenes Web-Interface liefert,
-  passt der Client automatisch zu jeder Jellyfin-10.x-Version (getestet wird das Web-UI beim Server).
+Entwickelt für **Jellyfin 12.4** (funktioniert auch mit 10.10/10.11).
 
-## Funktionen
+## Was JellyDrax ändert – und was nicht
 
 | | |
 |---|---|
-| Verbindungsdialog | Adresse mit/ohne Port, `http`/`https`, Unterpfad hinter Reverse Proxy; prüft `/System/Info/Public` |
-| Anmeldung bleibt erhalten | eigenes WebView2-Profil unter `%LOCALAPPDATA%\JellyfinDesktop` |
-| Vollbild | Video-Vollbild = echtes Fenster-Vollbild; **F11** / **Alt+Enter**, **Esc** beendet |
-| Autoplay | „Nächste Folge“ startet ohne Klick |
-| Externe Links | IMDb/TMDB/Trailer öffnen im Standardbrowser |
-| Selbstsignierte Zertifikate | pro Host bestätigbar |
-| Offline-Seite | automatische Wiederholung alle 15 s (z. B. während Server-Neustart) |
-| Fenster | Position/Größe/Zoom werden gespeichert, dunkle Titelleiste |
+| **Design** | eigene Farben, Schrift, Eckenradius, Kopfleiste mit Glas-Effekt, Hintergrund ohne Medienbilder |
+| **Server-CSS** | wird standardmäßig ignoriert (z. B. ElegantFin) – abschaltbar unter *Erweitert* |
+| **Media Bar** | eigene Media Bar auf der Startseite (6 Stile, 8 Übergänge, Trailer im Hintergrund) |
+| **Player** | **unverändert** – abgespielt wird immer mit dem Jellyfin-Player, Player-Plugins (z. B. Intro Skipper) funktionieren wie gewohnt |
+| **Plugins** | JavaScript-Plugins des Servers laufen weiterhin; eine Media Bar eines Server-Plugins wird auf Wunsch ausgeblendet |
 
-**Tastenkürzel:** F5 neu laden · Strg+F5 ohne Cache · Strg+Umschalt+S Server wechseln ·
-F11 Vollbild · F12 Entwicklertools · Strg+Mausrad / Strg+0 Zoom.
-Weitere Befehle (u. a. *Cache leeren*) im **Rechtsklick-Menü der Titelleiste**.
+## JellyDrax-Einstellungen
+
+Öffnen über das **Paletten-Symbol** in der Kopfleiste, mit **Strg + ,** oder über das Rechtsklick-Menü der
+Titelleiste. Alle Änderungen sind sofort sichtbar und werden in der App gespeichert.
+
+- **Design** – 13 fertige Themes (JellyDrax, Midnight, AMOLED, Kino, Nord, Dracula, Ozean, Smaragd,
+  Sonnenuntergang, Rosé, Royal Gold, Graphit, Jellyfin Klassik), dazu **eigene Farben** für Akzent,
+  zweiten Akzent, Hintergrund, Flächen, Bedienelemente und Text. Hintergrund-Stil (Farbschein, Verlauf, einfarbig),
+  Eckenradius, Schriftart, Glas-Effekt.
+- **Media Bar**
+  - Stile: *Kino* (volle Breite, bis unter die Kopfleiste), *Zentriert*, *Karte* (Glas-Infofeld),
+    *Geteilt* (Text links, Bild rechts), *Poster*, *Kompakt*
+  - Übergänge: Überblenden, Ken Burns, Schieben, Zoom, Unschärfe, Wischen, Kreis-Enthüllung, 3D-Würfel
+  - Text-Animationen, Indikator (Fortschrittsbalken, Punkte, Vorschaubilder, Zähler), Höhe, Anzeigedauer
+  - Inhalt: zufällig, neu hinzugefügt, neueste Veröffentlichungen, am besten bewertet, ungesehen, Favoriten;
+    Filme/Serien/Musikalben/Sammlungen; Anzahl
+  - Logo statt Titel, Bewertung/Jahr/Laufzeit/FSK/Genres, Beschreibung
+  - Buttons *Abspielen/Fortsetzen* (Serien: nächste Folge), *Mehr Infos*, *Favorit*
+  - Trailer im Hintergrund (lokal oder zusätzlich YouTube), optional mit Ton
+- **Animationen** – Hover über Poster/Medienfelder: *Elegant* (wie ElegantFin), Anheben, Bild-Zoom,
+  Leuchten, 3D-Kippen, Lichtreflex, keine – mit Live-Vorschau. Seitenwechsel-Animation und
+  Geschwindigkeit aller Animationen.
+- **Startseite** – Hintergrundbilder aus der Mediathek (Standard: aus), Rubriken-Reihe zentrieren,
+  Titel der ersten Rubrik („Meine Medien“) ausblenden, Plugin-Media-Bar ausblenden.
+- **Erweitert** – Server-CSS ignorieren, eigenes CSS, Einstellungen exportieren/importieren/zurücksetzen.
 
 ## Installation
 
-**Installer:** `JellyfinDesktop-Setup-1.0.0.exe` ausführen. Installiert pro Benutzer (keine Adminrechte)
-nach `%LOCALAPPDATA%\Programs\Jellyfin Desktop`, legt einen **Startmenü-Eintrag** an (optional auch
-eine Desktop-Verknüpfung) und erscheint unter *Einstellungen → Apps → Installierte Apps* zum Deinstallieren.
-Beim Deinstallieren wird gefragt, ob Anmeldung/Einstellungen ebenfalls gelöscht werden sollen.
-Stille Installation: `JellyfinDesktop-Setup-1.0.0.exe /S`.
+**Installer:** `JellyDrax-Setup-2.0.0.exe` ausführen. Installiert pro Benutzer (keine Adminrechte) nach
+`%LOCALAPPDATA%\Programs\JellyDrax`, legt einen **Startmenü-Eintrag** an (optional Desktop-Verknüpfung) und
+erscheint unter *Einstellungen → Apps → Installierte Apps*. Eine vorhandene Installation von
+„Jellyfin Desktop“ wird ersetzt – Server, Anmeldung und Fensterposition werden übernommen.
+Stille Installation: `JellyDrax-Setup-2.0.0.exe /S`.
 
-**Ohne Installation:** `JellyfinDesktop.exe` direkt ausführen – kein .NET nötig (self-contained).
-Die WebView2 Runtime ist in Windows 11 vorinstalliert.
+**Ohne Installation:** `JellyDrax.exe` direkt ausführen (kein .NET nötig).
 
 ```
-JellyfinDesktop.exe --server https://jellyfin.example.de   # direkt verbinden
-JellyfinDesktop.exe --reset                                # gespeicherten Server vergessen
+JellyDrax.exe --server https://jellyfin.example.de   # direkt verbinden
+JellyDrax.exe --reset                                # gespeicherten Server vergessen
 ```
 
-**Portabler Modus:** eine leere Datei `portable.txt` neben die EXE legen → alle Daten landen in `.\data`.
+**Portabler Modus:** leere Datei `portable.txt` neben die EXE legen → alle Daten landen in `.\data`.
+
+## Tastenkürzel
+
+Strg+, Design & Media Bar · F11 / Alt+Enter Vollbild · F5 neu laden · Strg+F5 ohne Cache ·
+Strg+Umschalt+S Server wechseln · F12 Entwicklertools · Strg+Mausrad / Strg+0 Zoom
 
 ## Codecs
 
 Die Wiedergabe nutzt die Codecs von Microsoft Edge. H.264/AAC/VP9/AV1 laufen direkt;
-**HEVC/H.265** wird direkt abgespielt, wenn die GPU es kann und die *HEVC-Videoerweiterungen*
-aus dem Microsoft Store installiert sind. Alles andere transkodiert der Server automatisch –
-der Jellyfin-Web-Client erkennt die Fähigkeiten selbst.
+**HEVC/H.265** direkt, wenn die GPU es kann und die *HEVC-Videoerweiterungen* installiert sind.
+Alles andere transkodiert der Server automatisch.
+
+## Aufbau
+
+| Datei | Inhalt |
+|---|---|
+| `src/JellyDrax/MainForm.cs` | Fenster, WebView2, Vollbild, Tastenkürzel, Einbindung des Designs, Filter für Server-CSS |
+| `src/JellyDrax/Assets/jellydrax.js` | Themes, Media Bar, Einstellungsfenster (läuft im Web-Interface) |
+| `src/JellyDrax/Assets/jellydrax.css` | Design, Hover-Effekte, Media-Bar-Stile und -Übergänge |
+| `src/JellyDrax/Assets/app.html` | Verbindungs- und Fehlerseite |
+| `installer/JellyDrax.nsi` | Installer (NSIS) |
 
 ## Selbst bauen
 
 ```
-dotnet publish src/JellyfinDesktop -c Release -o dist
+dotnet publish src/JellyDrax -c Release -o dist
+makensis -DVERSION=2.0.0 installer/JellyDrax.nsi
 ```
 
-Benötigt das .NET 8 SDK (unter Windows oder per `EnableWindowsTargeting` auch unter Linux/macOS).
-Ergebnis: `dist/JellyfinDesktop.exe` (Windows x64, eine Datei).
-Installer danach mit [NSIS](https://nsis.sourceforge.io): `makensis -DVERSION=1.0.0 installer/JellyfinDesktop.nsi`
-→ `dist/JellyfinDesktop-Setup-1.0.0.exe`. Der GitHub-Workflow in
-`.github/workflows/build.yml` baut die EXE ebenfalls.
+Benötigt das .NET 8 SDK und für den Installer [NSIS](https://nsis.sourceforge.io).
+Der GitHub-Workflow in `.github/workflows/build.yml` baut beides.

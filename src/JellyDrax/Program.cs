@@ -1,9 +1,9 @@
-namespace JellyfinDesktop;
+namespace JellyDrax;
 
 internal static class Program
 {
     /// <summary>
-    /// Aufruf: JellyfinDesktop.exe [--server &lt;url&gt;] [--reset]
+    /// Aufruf: JellyDrax.exe [--server &lt;url&gt;] [--reset]
     ///   --server  verbindet direkt mit dem angegebenen Server (und speichert ihn)
     ///   --reset   vergisst den gespeicherten Server und zeigt den Verbindungsdialog
     /// </summary>

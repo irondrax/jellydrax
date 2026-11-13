@@ -1,6 +1,8 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 
-namespace JellyfinDesktop;
+namespace JellyDrax;
 
 public sealed class AppSettings
 {
@@ -11,11 +13,18 @@ public sealed class AppSettings
     public int[]? WindowBounds { get; set; }
     public bool Maximized { get; set; }
     public double Zoom { get; set; } = 1.0;
+    /// <summary>JellyDrax-Design-Einstellungen (Themes, Media Bar, Animationen) – Inhalt verwaltet jellydrax.js.</summary>
+    public JsonObject? Client { get; set; }
+
+    /// <summary>Branding-CSS des Servers ignorieren (Standard: ja).</summary>
+    [JsonIgnore]
+    public bool IgnoreServerCss =>
+        Client?["ignoreServerCss"] is JsonValue v && v.TryGetValue<bool>(out var b) ? b : true;
 
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
     /// <summary>
-    /// Standard: %LOCALAPPDATA%\JellyfinDesktop.
+    /// Standard: %LOCALAPPDATA%\JellyDrax (Daten einer älteren "Jellyfin Desktop"-Installation werden übernommen).
     /// Portabler Modus: liegt neben der EXE eine Datei "portable.txt", wird ".\data" verwendet.
     /// </summary>
     public static string DataDir { get; } = ResolveDataDir();
@@ -27,8 +36,19 @@ public sealed class AppSettings
         var exeDir = AppContext.BaseDirectory;
         if (File.Exists(Path.Combine(exeDir, "portable.txt")))
             return Path.Combine(exeDir, "data");
-        return Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "JellyfinDesktop");
+        var local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var dir = Path.Combine(local, "JellyDrax");
+        var legacy = Path.Combine(local, "JellyfinDesktop");
+        try
+        {
+            if (!Directory.Exists(dir) && Directory.Exists(legacy))
+                Directory.Move(legacy, dir); // Server, Anmeldung und Fensterposition behalten
+        }
+        catch
+        {
+            // z. B. wenn die alte Version noch läuft -> mit neuem Ordner starten
+        }
+        return dir;
     }
 
     public static AppSettings Load()

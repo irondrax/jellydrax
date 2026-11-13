@@ -3,16 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Jellyfin</title>
+<title>JellyDrax</title>
 <style>
   :root {
-    --bg: #101010; --card: #1c1c1c; --line: #2e2e2e; --text: #eee; --muted: #9a9a9a;
-    --accent: #00a4dc; --accent-2: #aa5cc3; --error: #ff6b6b; --ok: #4caf50;
+    --bg: #0d0b14; --card: #17141f; --line: #2b2538; --text: #f2eefa; --muted: #a9a1b8;
+    --accent: #00c2ff; --accent-2: #9b5cff; --error: #ff6b6b; --ok: #4caf50;
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; margin: 0; }
   body {
-    background: radial-gradient(1200px 600px at 50% -10%, #1d1530 0%, var(--bg) 60%);
+    background: radial-gradient(1100px 620px at 12% -8%, rgba(155,92,255,.22), transparent 62%), radial-gradient(900px 600px at 100% 0%, rgba(0,194,255,.12), transparent 60%), var(--bg);
     color: var(--text); font: 15px/1.5 "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
     display: flex; align-items: center; justify-content: center; padding: 24px;
     user-select: none;
@@ -27,7 +27,7 @@
   label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
   input[type=text] {
     width: 100%; padding: 11px 12px; border-radius: 8px; border: 1px solid var(--line);
-    background: #121212; color: var(--text); font: inherit; outline: none; user-select: text;
+    background: #0f0c17; color: var(--text); font: inherit; outline: none; user-select: text;
   }
   input[type=text]:focus { border-color: var(--accent); }
   .check { display: flex; align-items: center; gap: 8px; margin: 12px 0 20px; font-size: 13px; color: var(--muted); cursor: pointer; }
@@ -65,11 +65,11 @@
   <div class="logo">
     <svg width="44" height="44" viewBox="0 0 64 64" aria-hidden="true">
       <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stop-color="#aa5cc3"/><stop offset="1" stop-color="#00a4dc"/></linearGradient></defs>
-      <rect x="4" y="4" width="56" height="56" rx="14" fill="url(#g)"/>
-      <path d="M26 20 L46 32 L26 44 Z" fill="#fff"/>
+        <stop offset="0" stop-color="#9b5cff"/><stop offset="1" stop-color="#00c2ff"/></linearGradient></defs>
+      <path d="M32 3 L57 17.5 L57 46.5 L32 61 L7 46.5 L7 17.5 Z" fill="url(#g)"/>
+      <path d="M26 21 L45 32 L26 43 Z" fill="#fff"/>
     </svg>
-    <h1>Jellyfin Desktop<small>Client für den Jellyfin-Server</small></h1>
+    <h1>JellyDrax<small>Client für deinen Jellyfin-Server</small></h1>
   </div>
 
   <!-- Verbinden -->

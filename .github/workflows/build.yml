@@ -10,12 +10,12 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
-      - run: dotnet publish src/JellyfinDesktop -c Release -o dist
+      - run: dotnet publish src/JellyDrax -c Release -o dist
       - name: Installer bauen (NSIS ist auf windows-latest vorinstalliert)
-        run: makensis -DVERSION=1.0.0 installer/JellyfinDesktop.nsi
+        run: makensis -DVERSION=2.0.0 installer/JellyDrax.nsi
       - uses: actions/upload-artifact@v4
         with:
-          name: JellyfinDesktop-win-x64
+          name: JellyDrax-win-x64
           path: |
-            dist/JellyfinDesktop.exe
-            dist/JellyfinDesktop-Setup-*.exe
+            dist/JellyDrax.exe
+            dist/JellyDrax-Setup-*.exe
