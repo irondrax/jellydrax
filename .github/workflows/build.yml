@@ -44,15 +44,23 @@ jobs:
             dist/JellyDrax.exe
             dist/JellyDrax-Setup-*.exe
 
+      # Release automatisch: bei einem Versions-Tag oder wenn auf main eine neue
+      # Versionsnummer (<Version> in JellyDrax.csproj) ankommt, für die es noch kein Release gibt.
       - name: Release erstellen
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          notes=".github/release-notes/${GITHUB_REF_NAME}.md"
+          tag="v$VERSION"
+          if gh release view "$tag" > /dev/null 2>&1; then
+            echo "Release $tag existiert bereits – nichts zu tun."
+            exit 0
+          fi
+          notes=".github/release-notes/$tag.md"
           if [[ -f "$notes" ]]; then args=(--notes-file "$notes"); else args=(--generate-notes); fi
-          gh release create "$GITHUB_REF_NAME" \
+          gh release create "$tag" \
             "dist/JellyDrax-Setup-$VERSION.exe" \
             dist/JellyDrax.exe \
+            --target "$GITHUB_SHA" \
             --title "JellyDrax $VERSION" "${args[@]}"
