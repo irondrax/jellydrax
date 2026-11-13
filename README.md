@@ -22,8 +22,9 @@ Entwickelt für **Jellyfin 12.4** (funktioniert auch mit 10.10/10.11).
 Öffnen über das **Paletten-Symbol** in der Kopfleiste (neben der Suche), mit **Strg + ,** oder über das
 Rechtsklick-Menü der Titelleiste. Alle Änderungen sind sofort sichtbar und werden in der App gespeichert.
 
-- **Design** – 15 fertige Themes, darunter **Glass** und **Glass Aurora** (halbtransparente Flächen mit
-  Unschärfe über farbigen Lichtflächen), außerdem JellyDrax, Midnight, AMOLED, Kino, Nord, Dracula, Ozean, Smaragd,
+- **Design** – 17 fertige Themes, darunter **Liquid Glass** und **Liquid Sunset** (klares Glas mit
+  Lichtkanten und Lichtbrechung, schwebende Kopfleiste, Pillen-Buttons, bewegter Farbhintergrund),
+  **Glass** und **Glass Aurora** (halbtransparente Flächen mit Unschärfe über farbigen Lichtflächen), außerdem JellyDrax, Midnight, AMOLED, Kino, Nord, Dracula, Ozean, Smaragd,
   Sonnenuntergang, Rosé, Royal Gold, Graphit, Jellyfin Klassik), dazu **eigene Farben** für Akzent,
   zweiten Akzent, Hintergrund, Flächen, Bedienelemente und Text. Hintergrund-Stil (Farbschein, Verlauf, einfarbig),
   Eckenradius, Schriftart, Glas-Optik (für jedes Theme zuschaltbar). Die Windows-Titelleiste übernimmt die Theme-Farbe.
@@ -48,11 +49,11 @@ Rechtsklick-Menü der Titelleiste. Alle Änderungen sind sofort sichtbar und wer
 
 ## Installation
 
-**Installer:** `JellyDrax-Setup-2.1.0.exe` ausführen. Installiert pro Benutzer (keine Adminrechte) nach
+**Installer:** `JellyDrax-Setup-2.2.0.exe` ausführen. Installiert pro Benutzer (keine Adminrechte) nach
 `%LOCALAPPDATA%\Programs\JellyDrax`, legt einen **Startmenü-Eintrag** an (optional Desktop-Verknüpfung) und
 erscheint unter *Einstellungen → Apps → Installierte Apps*. Eine vorhandene Installation von
 „Jellyfin Desktop“ wird ersetzt – Server, Anmeldung und Fensterposition werden übernommen.
-Stille Installation: `JellyDrax-Setup-2.1.0.exe /S`.
+Stille Installation: `JellyDrax-Setup-2.2.0.exe /S`.
 
 **Ohne Installation:** `JellyDrax.exe` direkt ausführen (kein .NET nötig).
 
@@ -88,7 +89,7 @@ Alles andere transkodiert der Server automatisch.
 
 ```
 dotnet publish src/JellyDrax -c Release -o dist
-makensis -DVERSION=2.1.0 installer/JellyDrax.nsi
+makensis -DVERSION=2.2.0 installer/JellyDrax.nsi
 ```
 
 Benötigt das .NET 8 SDK und für den Installer [NSIS](https://nsis.sourceforge.io).

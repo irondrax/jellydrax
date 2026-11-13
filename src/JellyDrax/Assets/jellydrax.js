@@ -20,6 +20,8 @@
   // ------------------------------------------------------------- Themes
 
   var THEMES = {
+    liquid: { name: 'Liquid Glass', glass: true, liquid: true, bg: '#060912', surface: '#121a30', surface2: '#1d2745', text: '#ffffff', muted: '#bcc5df', accent: '#5ac8fa', accent2: '#bf5af2' },
+    liquidsunset: { name: 'Liquid Sunset', glass: true, liquid: true, bg: '#0d0710', surface: '#1f1222', surface2: '#2d1a31', text: '#fff8f5', muted: '#d6b9c2', accent: '#ff9f0a', accent2: '#ff375f' },
     glass: { name: 'Glass', glass: true, bg: '#0a0f1f', surface: '#151b33', surface2: '#212a4a', text: '#f4f6ff', muted: '#aeb6d4', accent: '#7aa2ff', accent2: '#c77dff' },
     glassaurora: { name: 'Glass Aurora', glass: true, bg: '#05141a', surface: '#0e2430', surface2: '#173543', text: '#effbfa', muted: '#9cc3c6', accent: '#2fe6c8', accent2: '#ff6fd8' },
     jellydrax: { name: 'JellyDrax', bg: '#0d0b14', surface: '#17141f', surface2: '#231e2f', text: '#f2eefa', muted: '#a9a1b8', accent: '#9b5cff', accent2: '#00c2ff' },
@@ -58,6 +60,8 @@
     theme: 'jellydrax',
     colors: {},
     glass: false,
+    liquid: false,
+    refraction: true,
     detailBanner: 'color',
     bgStyle: 'glow',
     radius: 12,
@@ -266,7 +270,10 @@
     r.classList.add('jdx');
     r.classList.toggle('jdx-nobackdrop', !S.backdrops);
     r.classList.toggle('jdx-glass', !!S.glassHeader);
-    r.classList.toggle('jdx-glassmode', !!S.glass);
+    r.classList.toggle('jdx-glassmode', !!(S.glass || S.liquid));
+    r.classList.toggle('jdx-liquid', !!S.liquid);
+    r.classList.toggle('jdx-refraction', !!(S.liquid && S.refraction));
+    if (S.liquid) ensureLiquidFilter();
     r.setAttribute('data-jdx-banner', S.detailBanner || 'color');
     r.classList.toggle('jdx-hide-plugin-bar', !!S.hidePluginBar);
     r.classList.toggle('jdx-hide-first-title', !!S.hideFirstTitle);
@@ -284,11 +291,26 @@
     sendWindowColors();
   }
 
+  // SVG-Filter für die Lichtbrechung (backdrop-filter: url(#jdx-liquid-filter), nur Chromium/WebView2)
+  function ensureLiquidFilter() {
+    if (!document.body || document.getElementById('jdx-liquid-svg')) return;
+    var ns = 'http://www.w3.org/2000/svg';
+    var wrap = document.createElement('div');
+    wrap.innerHTML = '<svg xmlns="' + ns + '" id="jdx-liquid-svg" width="0" height="0" style="position:absolute;width:0;height:0" aria-hidden="true">' +
+      '<filter id="jdx-liquid-filter" x="-5%" y="-5%" width="110%" height="110%" color-interpolation-filters="sRGB">' +
+      '<feTurbulence type="fractalNoise" baseFrequency="0.006 0.011" numOctaves="2" seed="11" result="noise"/>' +
+      '<feGaussianBlur in="noise" stdDeviation="2.5" result="soft"/>' +
+      '<feDisplacementMap in="SourceGraphic" in2="soft" scale="34" xChannelSelector="R" yChannelSelector="G" result="bent"/>' +
+      '<feGaussianBlur in="bent" stdDeviation="6"/>' +
+      '</filter></svg>';
+    document.body.appendChild(wrap.firstChild);
+  }
+
   // Titelleiste des Windows-Fensters an das Theme anpassen (Windows 11)
   var lastWindowColors = '';
   function sendWindowColors() {
     var p = palette();
-    var msg = { jdx: 'chrome', caption: S.glass ? p.bg : p.surface, text: p.text };
+    var msg = { jdx: 'chrome', caption: (S.glass || S.liquid) ? p.bg : p.surface, text: p.text };
     var key = JSON.stringify(msg);
     if (key === lastWindowColors) return;
     lastWindowColors = key;
@@ -951,7 +973,9 @@
     var grid = el('div', { class: 'jdx-themes' });
     Object.keys(THEMES).forEach(function (id) {
       var t = THEMES[id];
-      var prevBg = t.glass
+      var prevBg = t.liquid
+        ? 'radial-gradient(circle at 20% 30%, ' + t.accent + 'cc, transparent 50%), radial-gradient(circle at 80% 20%, ' + t.accent2 + 'bb, transparent 50%), radial-gradient(circle at 60% 90%, ' + t.accent + '88, transparent 55%), ' + t.bg
+        : t.glass
         ? 'radial-gradient(circle at 15% 20%, ' + t.accent + '99, transparent 55%), radial-gradient(circle at 85% 30%, ' + t.accent2 + '88, transparent 55%), ' + t.bg
         : t.bg;
       var prev = el('div', { class: 'jdx-theme-prev', style: { background: prevBg } }, [
@@ -965,6 +989,7 @@
         S.theme = id;
         S.colors = {};
         S.glass = !!t.glass;
+        S.liquid = !!t.liquid;
         changed('theme');
         renderTab();
       });
@@ -1031,6 +1056,8 @@
       add(row('Eckenradius', 'Karten, Schaltflächen und Dialoge', rangeCtl('radius', 0, 24, 1, px)));
       add(row('Schriftart', null, selectCtl('font', FONT_OPTS)));
       add(row('Glas-Optik', 'Kopfleiste, Menüs, Dialoge, Rubriken und Karten halbtransparent mit Unschärfe – bei den Glass-Themes automatisch an', toggleCtl('glass')));
+      add(row('Liquid Glass', 'Schwebende Glas-Kopfleiste, Lichtkanten, Pillen-Buttons und bewegter Hintergrund – bei den Liquid-Themes automatisch an', toggleCtl('liquid')));
+      add(row('Lichtbrechung', 'Liquid Glass verzerrt den Hintergrund wie echtes Glas (benötigt etwas mehr Grafikleistung)', toggleCtl('refraction')));
       add(row('Glas-Effekt für die Kopfleiste', 'Nur die Kopfleiste halbtransparent', toggleCtl('glassHeader')));
     } else if (activeTab === 'mediabar') {
       add(row('Media Bar anzeigen', 'Große Vorschau oben auf der Startseite', toggleCtl('mediaBar.enabled')));
@@ -1158,30 +1185,25 @@
 
   function removeFab() { var f = document.getElementById('jdx-fab'); if (f) f.remove(); }
 
-  function ensureHeaderButton() {
-    // a) klassische Kopfleiste (Legacy-Layout)
-    var right = document.querySelector('.skinHeader:not(.osdHeader) .headerRight');
-    if (right) {
-      headerMisses = 0; removeFab();
-      if (right.querySelector('.jdx-headerBtn')) return;
-      var b = el('button', { type: 'button', class: 'headerButton headerButtonRight paper-icon-button-light jdx-headerBtn', title: 'JellyDrax-Design (Strg+,)' }, [icon('palette')]);
-      b.addEventListener('click', function () { openSettings(); });
-      var user = right.querySelector('.headerUserButton');
-      right.insertBefore(b, user || null);
-      return;
-    }
+  function isVisible(n) { return !!(n && n.getClientRects().length); }
 
-    // b) moderne Kopfleiste (Jellyfin 10.11+/12.x, Standard)
-    var toolbar = document.querySelector('.MuiAppBar-root .MuiToolbar-root');
+  function ensureHeaderButton() {
+    // Buttons in unsichtbaren Kopfleisten entfernen (Jellyfin 12 behält die alte Kopfleiste
+    // versteckt im DOM – dort eingefügte Buttons sieht man nicht)
+    document.querySelectorAll('.jdx-headerBtn, .jdx-toolbarBtn').forEach(function (b) { if (!isVisible(b)) b.remove(); });
+
+    // a) moderne Kopfleiste (Jellyfin 10.11+/12.x, Standard)
+    var toolbar = Array.prototype.filter.call(document.querySelectorAll('.MuiAppBar-root .MuiToolbar-root'), isVisible)[0];
     if (toolbar) {
       headerMisses = 0; removeFab();
       if (toolbar.querySelector('.jdx-toolbarBtn')) return;
       var ref = toolbar.querySelector('a[href*="search"]') ||
-        toolbar.querySelector('.MuiIconButton-root:not(.jdx-toolbarBtn)');
+        toolbar.querySelector('[aria-label*="Such"], [aria-label*="Search"]');
+      var like = ref || toolbar.querySelector('.MuiIconButton-root');
       var btn = document.createElement('button');
       btn.type = 'button';
       // gleiche Klassen wie der Such-Button -> identisches Aussehen
-      btn.className = (ref ? ref.className.replace(/\bMui-disabled\b/g, '') : 'MuiButtonBase-root MuiIconButton-root') + ' jdx-toolbarBtn';
+      btn.className = (like ? like.className.replace(/\bMui-disabled\b/g, '') : 'MuiButtonBase-root MuiIconButton-root') + ' jdx-toolbarBtn';
       btn.title = 'JellyDrax-Design (Strg+,)';
       btn.setAttribute('aria-label', 'JellyDrax-Design');
       btn.style.color = 'inherit';
@@ -1192,8 +1214,20 @@
       return;
     }
 
-    // c) keine Kopfleiste erkannt -> schwebender Button (nicht im Player)
-    if (/^#\/?video/.test(location.hash) || document.documentElement.classList.contains('transparentDocument')) { removeFab(); return; }
+    // b) klassische Kopfleiste (Legacy-Layout / TV)
+    var right = Array.prototype.filter.call(document.querySelectorAll('.skinHeader:not(.osdHeader) .headerRight'), isVisible)[0];
+    if (right) {
+      headerMisses = 0; removeFab();
+      if (right.querySelector('.jdx-headerBtn')) return;
+      var b = el('button', { type: 'button', class: 'headerButton headerButtonRight paper-icon-button-light jdx-headerBtn', title: 'JellyDrax-Design (Strg+,)' }, [icon('palette')]);
+      b.addEventListener('click', function () { openSettings(); });
+      var user = right.querySelector('.headerUserButton');
+      right.insertBefore(b, user || null);
+      return;
+    }
+
+    // c) keine sichtbare Kopfleiste -> schwebender Button (nicht im Player)
+    if (/^#\/?video/.test(location.hash) || /\/video$/.test(location.pathname) || document.documentElement.classList.contains('transparentDocument')) { removeFab(); return; }
     if (!userId() || ++headerMisses < 4 || document.getElementById('jdx-fab')) return;
     var fab = document.createElement('button');
     fab.id = 'jdx-fab';
@@ -1221,6 +1255,7 @@
     ensureStyles();
     ensureHeaderButton();
     silencePluginBar();
+    if (S.liquid) ensureLiquidFilter();
     refreshMediaBar(false);
   }
 
