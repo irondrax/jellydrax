@@ -92,7 +92,21 @@
       showMeta: true,
       trailers: 'off',
       trailerSound: false,
-      pauseOnHover: true
+      pauseOnHover: true,
+      transition: 1.2
+    },
+    reduceMotion: false,
+    ratings: {
+      imdb: true,
+      rt: true,
+      mc: true,
+      community: false,
+      inMediaBar: true,
+      onDetails: true,
+      hideJellyfinRatings: true,
+      size: 1,
+      style: 'badges',
+      omdbKey: ''
     }
   };
 
@@ -275,6 +289,10 @@
     r.classList.toggle('jdx-refraction', !!(S.liquid && S.refraction));
     if (S.liquid) ensureLiquidFilter();
     r.setAttribute('data-jdx-banner', S.detailBanner || 'color');
+    r.classList.toggle('jdx-reduce-motion', !!S.reduceMotion);
+    r.classList.toggle('jdx-own-ratings', !!(S.ratings.onDetails && S.ratings.hideJellyfinRatings));
+    r.style.setProperty('--jdx-rating-scale', String(S.ratings.size || 1));
+    r.setAttribute('data-jdx-rating-style', S.ratings.style || 'badges');
     r.classList.toggle('jdx-hide-plugin-bar', !!S.hidePluginBar);
     r.classList.toggle('jdx-hide-first-title', !!S.hideFirstTitle);
     r.classList.toggle('jdx-center-libs', !!S.centerLibraries);
@@ -329,6 +347,138 @@
         f.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'pauseVideo', args: [] }), '*');
       } catch (e) { /* ignorieren */ }
     });
+  }
+
+  // ======================================================== Bewertungen
+  // IMDb / Rotten Tomatoes / Metacritic über die OMDb-API (eigener, kostenloser Schlüssel nötig).
+  // Ohne Schlüssel: Kritiker-Wertung (Rotten Tomatoes) und Community-Wertung aus Jellyfin.
+
+  var fetchSeq = 0, fetchWaiters = {};
+  if (window.chrome && window.chrome.webview) {
+    window.chrome.webview.addEventListener('message', function (ev) {
+      var m = ev.data;
+      if (!m || m.jdx !== 'fetchResult' || !fetchWaiters[m.id]) return;
+      var w = fetchWaiters[m.id]; delete fetchWaiters[m.id];
+      m.ok ? w.resolve(m.body) : w.reject(new Error(m.error || ('HTTP ' + m.status)));
+    });
+  }
+
+  // Abruf über die Desktop-App (kein CORS-Problem), sonst direkt
+  function hostFetchJson(url) {
+    if (window.chrome && window.chrome.webview) {
+      return new Promise(function (resolve, reject) {
+        var id = 'f' + (++fetchSeq);
+        fetchWaiters[id] = { resolve: resolve, reject: reject };
+        window.chrome.webview.postMessage({ jdx: 'fetch', id: id, url: url });
+        setTimeout(function () { if (fetchWaiters[id]) { delete fetchWaiters[id]; reject(new Error('Zeitüberschreitung')); } }, 15000);
+      }).then(function (body) { return JSON.parse(body); });
+    }
+    return fetch(url).then(function (r) { return r.json(); });
+  }
+
+  var omdbMem = {}, omdbPending = {};
+  function omdbUrl(imdb, key) { return 'https://www.omdbapi.com/?i=' + encodeURIComponent(imdb) + '&apikey=' + encodeURIComponent(key); }
+
+  function getOmdb(imdb) {
+    var key = (S.ratings.omdbKey || '').trim();
+    if (!key || !imdb) return Promise.resolve(null);
+    if (omdbMem[imdb] !== undefined) return Promise.resolve(omdbMem[imdb]);
+    try {
+      var c = JSON.parse(localStorage.getItem('jdx-omdb-' + imdb) || 'null');
+      if (c && Date.now() - c.t < (c.d ? 14 : 1) * 864e5) { omdbMem[imdb] = c.d; return Promise.resolve(c.d); }
+    } catch (e) { /* ignorieren */ }
+    if (omdbPending[imdb]) return omdbPending[imdb];
+    omdbPending[imdb] = hostFetchJson(omdbUrl(imdb, key)).then(function (d) {
+      var data = d && d.Response === 'True' ? d : null;
+      omdbMem[imdb] = data;
+      try { localStorage.setItem('jdx-omdb-' + imdb, JSON.stringify({ t: Date.now(), d: data })); } catch (e) { /* ignorieren */ }
+      return data;
+    }).catch(function () { return null; }).then(function (d) { delete omdbPending[imdb]; return d; });
+    return omdbPending[imdb];
+  }
+
+  function ratingList(item, omdb) {
+    var r = S.ratings, out = [];
+    var find = function (src) {
+      var x = omdb && (omdb.Ratings || []).filter(function (q) { return q.Source === src; })[0];
+      return x && x.Value;
+    };
+    if (r.imdb && omdb && omdb.imdbRating && omdb.imdbRating !== 'N/A') out.push({ k: 'imdb', v: omdb.imdbRating });
+    if (r.rt) {
+      var rt = find('Rotten Tomatoes');
+      var rtv = rt ? parseInt(rt, 10) : item.CriticRating;
+      if (rtv || rtv === 0) out.push({ k: 'rt', v: rtv + '%', fresh: rtv >= 60 });
+    }
+    if (r.mc) {
+      var mc = omdb && omdb.Metascore && omdb.Metascore !== 'N/A' ? parseInt(omdb.Metascore, 10) : null;
+      if (mc || mc === 0) out.push({ k: 'mc', v: String(mc), level: mc >= 61 ? 'good' : mc >= 40 ? 'mixed' : 'bad' });
+    }
+    // Community-Bewertung: wenn gewünscht – oder als Ersatz für IMDb, solange kein OMDb-Schlüssel eingetragen ist
+    var noKey = !(S.ratings.omdbKey || '').trim();
+    if ((r.community || (r.imdb && noKey)) && item.CommunityRating) out.push({ k: 'star', v: item.CommunityRating.toFixed(1) });
+    return out;
+  }
+
+  var TOMATO_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#fa320a" d="M12 6.5c4.7 0 8.5 3.1 8.5 7.2S16.7 21 12 21s-8.5-3.2-8.5-7.3S7.3 6.5 12 6.5z"/><path fill="#00912d" d="M12.4 7.3c.9-1.8 2.7-2.6 4.7-2.2-1 .9-2.2 1.4-3.5 1.6 1.4.1 2.6.6 3.4 1.5-1.6.1-3-.2-4.3-.9-.6 1.2-1.5 2-2.8 2.3.4-.9.8-1.6 1.4-2.2-1.2 0-2.3-.3-3.3-.9 1.4-.6 2.9-.5 4.4.8z"/></svg>';
+  var SPLAT_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#0ac855" d="M12 3.5c1.4 1.6 1.9 3 1.6 4.4 1.3-1.4 3-2 5-1.6-1.2 1.2-1.6 2.5-1.3 3.8 1.5-.2 2.9.3 4.2 1.5-1.6.5-2.6 1.4-3 2.7 1.1.9 1.6 2.1 1.5 3.6-1.5-.8-2.9-.9-4.2-.3-.1 1.5-.8 2.6-2 3.4-.5-1.4-1.4-2.3-2.8-2.6-1 1.1-2.3 1.6-3.9 1.5.6-1.3.6-2.6 0-3.8-1.5.2-2.8-.2-3.9-1.3 1.4-.6 2.3-1.5 2.6-2.8-1.2-.8-1.8-2-1.8-3.5 1.5.5 2.9.4 4.1-.4-.2-1.6.4-3 1.9-4.6z"/></svg>';
+
+  function renderRatings(box, list) {
+    box.textContent = '';
+    list.forEach(function (r) {
+      var b;
+      if (r.k === 'imdb') b = el('span', { class: 'jdx-rating jdx-r-imdb', title: 'IMDb' }, [el('b', { text: 'IMDb' }), r.v]);
+      else if (r.k === 'rt') {
+        b = el('span', { class: 'jdx-rating jdx-r-rt' + (r.fresh ? '' : ' is-rotten'), title: 'Rotten Tomatoes' });
+        var ic = el('i'); ic.innerHTML = r.fresh ? TOMATO_SVG : SPLAT_SVG; b.appendChild(ic); b.appendChild(document.createTextNode(r.v));
+      } else if (r.k === 'mc') b = el('span', { class: 'jdx-rating jdx-r-mc', title: 'Metacritic' }, [el('b', { class: 'is-' + r.level, text: r.v }), 'Metacritic']);
+      else b = el('span', { class: 'jdx-rating jdx-r-star', title: 'Community-Bewertung' }, ['★ ' + r.v]);
+      box.appendChild(b);
+    });
+    box.classList.toggle('jdx-hidden', !list.length);
+  }
+
+  function imdbOf(item) { var p = item.ProviderIds || {}; return p.Imdb || p.IMDB || p.imdb || null; }
+
+  function fillRatings(box, item) {
+    renderRatings(box, ratingList(item, null));
+    var imdb = imdbOf(item);
+    if (!imdb || !(S.ratings.imdb || S.ratings.rt || S.ratings.mc)) return;
+    getOmdb(imdb).then(function (d) { if (d && box.isConnected) renderRatings(box, ratingList(item, d)); });
+  }
+
+  // Bewertungen auf Film- und Serienseiten
+  var detailItemCache = {};
+  function ensureDetailRatings() {
+    if (!S.ratings.onDetails) { document.querySelectorAll('.jdx-detail-ratings').forEach(function (n) { n.remove(); }); return; }
+    var page = Array.prototype.filter.call(document.querySelectorAll('.itemDetailPage'), function (p) { return !p.classList.contains('hide') && p.getClientRects().length; })[0];
+    if (!page) return;
+    var m = /[?&]id=([0-9a-f]{32})/i.exec(location.href);
+    if (!m) return;
+    var id = m[1].toLowerCase();
+    var host = page.querySelector('.itemMiscInfo-primary') || page.querySelector('.itemMiscInfo');
+    if (!host || !host.parentNode) return;
+    var box = page.querySelector('.jdx-detail-ratings');
+    if (box && box.getAttribute('data-id') === id && box.previousElementSibling === host) return;
+    if (box) box.remove();
+    box = el('div', { class: 'jdx-detail-ratings jdx-ratings', 'data-id': id });
+    host.parentNode.insertBefore(box, host.nextSibling);
+    var a = api(), uid = userId();
+    if (!a || !uid) return;
+    var load = detailItemCache[id] ? Promise.resolve(detailItemCache[id]) : a.getItem(uid, id).then(function (it) { detailItemCache[id] = it; return it; });
+    load.then(function (item) {
+      if (!item || ['Movie', 'Series', 'Episode', 'Season'].indexOf(item.Type) < 0) { box.remove(); return; }
+      fillRatings(box, item);
+    }).catch(function () { box.remove(); });
+  }
+
+  function testOmdbKey(out) {
+    var key = (S.ratings.omdbKey || '').trim();
+    if (!key) { out.textContent = 'Bitte zuerst einen Schlüssel eintragen.'; return; }
+    out.textContent = 'Prüfe …';
+    hostFetchJson(omdbUrl('tt0084726', key)).then(function (d) {
+      out.textContent = d && d.Response === 'True' ? '✓ Schlüssel funktioniert (Test: ' + d.Title + ', IMDb ' + d.imdbRating + ')' : '✗ ' + ((d && d.Error) || 'Ungültige Antwort');
+      if (d && d.Response === 'True') { omdbMem = {}; refreshMediaBar(true); }
+    }).catch(function (e) { out.textContent = '✗ ' + e.message; });
   }
 
   // ======================================================== Media Bar
@@ -394,14 +544,16 @@
     e.setAttribute('data-ind', m.indicator);
     e.setAttribute('data-height', m.height);
     e.style.setProperty('--jdx-mb-interval', m.interval + 's');
+    e.style.setProperty('--jdx-mb-dur', (m.transition || 1.2) + 's');
     updatePull();
   }
 
-  // Kino-Stil reicht bis unter die (dann transparente) Kopfleiste
+  // Diese Stile reichen bis unter die (dann transparente) Kopfleiste
+  var PULL_STYLES = ['cinema', 'spotlight', 'minimal'];
   function updatePull() {
     if (!MB.el) return;
     MB.el.style.marginTop = '';
-    if (S.mediaBar.style !== 'cinema' || !MB.visible) return;
+    if (PULL_STYLES.indexOf(S.mediaBar.style) < 0 || !MB.visible) return;
     var top = MB.el.getBoundingClientRect().top + window.scrollY;
     if (top > 0 && top < 400) MB.el.style.marginTop = (-top) + 'px';
   }
@@ -423,8 +575,11 @@
     var meta = null;
     if (m.showMeta) {
       var bits = [];
-      if (item.CommunityRating) bits.push(el('span', { class: 'jdx-star' }, ['★ ' + item.CommunityRating.toFixed(1)]));
-      if (item.CriticRating) bits.push(el('span', { class: 'jdx-rt' }, ['🍅 ' + item.CriticRating + '%']));
+      if (S.ratings.inMediaBar) {
+        var rbox = el('span', { class: 'jdx-ratings' });
+        fillRatings(rbox, item);
+        bits.push(rbox);
+      }
       if (item.ProductionYear) bits.push(el('span', { text: String(item.ProductionYear) }));
       if (item.Type === 'Series' && item.ChildCount) bits.push(el('span', { text: item.ChildCount + (item.ChildCount === 1 ? ' Staffel' : ' Staffeln') }));
       else if (item.RunTimeTicks) bits.push(el('span', { text: formatRuntime(item.RunTimeTicks) }));
@@ -449,7 +604,8 @@
       favBtn
     ]);
 
-    var body = el('div', { class: 'jdx-slide-body' }, [title, tagline, meta, overview, actions]);
+    var num = el('div', { class: 'jdx-num' }, [el('b', { text: ('0' + (i + 1)).slice(-2) }), ' / ' + ('0' + MB.items.length).slice(-2)]);
+    var body = el('div', { class: 'jdx-slide-body' }, [num, title, tagline, meta, overview, actions]);
     var backdrop = imageUrl(item, 'Backdrop', { maxWidth: 1920 });
     var poster = imageUrl(item, 'Primary', { maxHeight: 900 });
 
@@ -460,6 +616,7 @@
       ]),
       el('div', { class: 'jdx-slide-shade' }),
       el('div', { class: 'jdx-slide-poster', 'data-src': poster || backdrop }),
+      el('div', { class: 'jdx-slide-frame', 'data-src': backdrop }),
       body
     ]);
   }
@@ -535,6 +692,11 @@
     });
     MB.el.addEventListener('click', function (e) {
       if (e.target.closest('button')) return;
+      var side = e.target.closest('.jdx-slide');
+      if (side && side.getAttribute('data-pos') && side.getAttribute('data-pos') !== '0') {
+        go(parseInt(side.getAttribute('data-i'), 10), parseInt(side.getAttribute('data-pos'), 10));
+        return;
+      }
       var item = MB.items[MB.idx];
       if (item) showDetails(item);
     });
@@ -578,11 +740,19 @@
       prevSlide.classList.add('is-leaving');
       prevSlide.classList.remove('has-video');
       clearTimeout(prevSlide._leaveTimer);
-      prevSlide._leaveTimer = setTimeout(function () { prevSlide.classList.remove('is-leaving'); }, 1600 * (S.speed || 1));
+      prevSlide._leaveTimer = setTimeout(function () { prevSlide.classList.remove('is-leaving'); }, (S.mediaBar.transition || 1.2) * 1600 + 150);
     }
     var cur = all[i];
+    var n = all.length;
     lazyImages(cur);
-    lazyImages(all[(i + 1) % all.length]);
+    lazyImages(all[(i + 1) % n]);
+    lazyImages(all[(i - 1 + n) % n]);
+    // Position relativ zum aktiven Titel (für den Karussell-Stil)
+    all.forEach(function (s, j) {
+      var d = ((j - i) % n + n) % n;
+      if (d > n / 2) d -= n;
+      s.setAttribute('data-pos', String(Math.max(-2, Math.min(2, d))));
+    });
     // Animation neu starten
     cur.classList.remove('is-active');
     void cur.offsetWidth;
@@ -827,6 +997,7 @@
   var TABS = [
     { id: 'design', label: 'Design', icon: 'palette' },
     { id: 'mediabar', label: 'Media Bar', icon: 'view_carousel' },
+    { id: 'ratings', label: 'Bewertungen', icon: 'star' },
     { id: 'anim', label: 'Animationen', icon: 'animation' },
     { id: 'home', label: 'Startseite', icon: 'home' },
     { id: 'advanced', label: 'Erweitert', icon: 'tune' }
@@ -838,7 +1009,13 @@
     ['card', 'Karte', 'Abgerundete Karte mit Glas-Infofeld'],
     ['split', 'Geteilt', 'Text auf Farbfläche links, Bild rechts'],
     ['poster', 'Poster', 'Poster vor unscharfem Hintergrund'],
-    ['compact', 'Kompakt', 'Flaches Banner ohne Beschreibung']
+    ['compact', 'Kompakt', 'Flaches Banner ohne Beschreibung'],
+    ['spotlight', 'Spotlight', 'Volle Breite, Text rechts'],
+    ['carousel', 'Karussell', 'Aktiver Titel mittig, Nachbarn seitlich sichtbar'],
+    ['stage', 'Bühne', 'Bild ungeschnitten im Rahmen vor unscharfem Hintergrund'],
+    ['diagonal', 'Diagonal', 'Farbfläche mit schrägem Bildanschnitt'],
+    ['magazine', 'Magazin', 'Große Nummer, Text links, Bild als Karte rechts'],
+    ['minimal', 'Minimal', 'Nur Bild, Titel und Buttons – mittig unten']
   ];
 
   var MB_ANIMS = [
@@ -876,10 +1053,15 @@
   function changed(path) {
     save();
     applyAll();
+    if (path.indexOf('ratings.') === 0) {
+      if (MB.el && path !== 'ratings.size' && path !== 'ratings.style') renderSlides();
+      document.querySelectorAll('.jdx-detail-ratings').forEach(function (n) { n.remove(); });
+      ensureDetailRatings();
+    }
     if (path.indexOf('mediaBar.') === 0) {
       var p = path.slice(9);
       if (['source', 'types', 'count'].indexOf(p) >= 0) refreshMediaBar(true);
-      else if (MB.el && ['showLogo', 'showOverview', 'showMeta', 'indicator', 'trailers'].indexOf(p) >= 0) renderSlides();
+      else if (MB.el && ['showLogo', 'showOverview', 'showMeta', 'indicator', 'trailers', 'style'].indexOf(p) >= 0) renderSlides();
       else if (MB.el && p === 'interval') schedule(S.mediaBar.interval * 1000);
       else if (p === 'enabled') refreshMediaBar(true);
     }
@@ -961,6 +1143,35 @@
       bar({ left: '8%', top: '12%', width: '20%', height: '76%', background: 'linear-gradient(160deg,#7a5ab0,#2c6a8a)', borderRadius: '4px' });
       bar({ left: '36%', top: '36%', width: '36%', height: '9px' }); bar({ left: '36%', top: '54%', width: '44%', height: '5px', opacity: '.6' });
       bar({ left: '36%', top: '70%', width: '14%', height: '8px', borderRadius: '6px' }, 's-btn');
+    } else if (style === 'spotlight') {
+      s.style.background = 'linear-gradient(270deg, #0d0b14 0%, rgba(13,11,20,.4) 55%, transparent), linear-gradient(135deg,#4b3a7a,#1f5a7a)';
+      bar({ right: '8%', top: '40%', width: '38%', height: '9px' }); bar({ right: '8%', top: '58%', width: '30%', height: '5px', opacity: '.6' });
+      bar({ right: '8%', top: '72%', width: '16%', height: '8px', borderRadius: '6px' }, 's-btn');
+    } else if (style === 'carousel') {
+      s.style.background = '#0d0b14';
+      bar({ left: '-6%', top: '18%', width: '24%', height: '64%', background: 'linear-gradient(135deg,#3a2f5c,#1f3f5a)', borderRadius: '6px', opacity: '.6' });
+      bar({ right: '-6%', top: '18%', width: '24%', height: '64%', background: 'linear-gradient(135deg,#3a2f5c,#1f3f5a)', borderRadius: '6px', opacity: '.6' });
+      bar({ left: '22%', top: '8%', width: '56%', height: '84%', background: 'linear-gradient(135deg,#5b46a0,#1f6a9a)', borderRadius: '7px' });
+      bar({ left: '27%', top: '62%', width: '24%', height: '6px' }); bar({ left: '27%', top: '75%', width: '12%', height: '6px', borderRadius: '5px' }, 's-btn');
+    } else if (style === 'stage') {
+      s.style.background = 'linear-gradient(135deg,#2c2440,#16303f)';
+      bar({ right: '6%', top: '14%', width: '50%', height: '72%', background: 'linear-gradient(135deg,#6a52b0,#2a7aa8)', borderRadius: '6px' });
+      bar({ left: '7%', top: '38%', width: '30%', height: '8px' }); bar({ left: '7%', top: '54%', width: '26%', height: '5px', opacity: '.6' });
+      bar({ left: '7%', top: '70%', width: '14%', height: '7px', borderRadius: '5px' }, 's-btn');
+    } else if (style === 'diagonal') {
+      s.style.background = '#17141f';
+      bar({ left: '36%', top: '0', width: '64%', height: '100%', background: 'linear-gradient(135deg,#4b3a7a,#1f5a7a)', borderRadius: '0', clipPath: 'polygon(22% 0,100% 0,100% 100%,0 100%)' });
+      bar({ left: '7%', top: '36%', width: '26%', height: '9px' }); bar({ left: '7%', top: '54%', width: '22%', height: '5px', opacity: '.6' });
+      bar({ left: '7%', top: '70%', width: '13%', height: '8px', borderRadius: '6px' }, 's-btn');
+    } else if (style === 'magazine') {
+      s.style.background = '#17141f';
+      bar({ left: '44%', top: '10%', width: '52%', height: '80%', background: 'linear-gradient(135deg,#4b3a7a,#1f5a7a)', borderRadius: '6px' });
+      bar({ left: '7%', top: '18%', width: '14%', height: '14px', background: 'var(--jdx-accent)' });
+      bar({ left: '7%', top: '46%', width: '30%', height: '8px' }); bar({ left: '7%', top: '62%', width: '26%', height: '5px', opacity: '.6' });
+      bar({ left: '7%', top: '76%', width: '13%', height: '7px', borderRadius: '5px' }, 's-btn');
+    } else if (style === 'minimal') {
+      s.style.background = 'linear-gradient(0deg, #0d0b14 0%, transparent 60%), linear-gradient(135deg,#4b3a7a,#1f5a7a)';
+      bar({ left: '35%', top: '58%', width: '30%', height: '8px' }); bar({ left: '42%', top: '74%', width: '16%', height: '7px', borderRadius: '5px' }, 's-btn');
     } else {
       s.style.background = '#0d0b14';
       bar({ left: '5%', top: '28%', width: '90%', height: '44%', background: 'linear-gradient(90deg,#1a1626,#4b3a7a 60%,#1f5a7a)', borderRadius: '6px' });
@@ -1066,6 +1277,7 @@
       add(row('Indikator', null, selectCtl('mediaBar.indicator', INDICATORS)));
       add(el('h3', { text: 'Animation' }));
       add(row('Übergang', 'Wie die Bilder wechseln', selectCtl('mediaBar.animation', MB_ANIMS)));
+      add(row('Übergangsdauer', 'Wie lange ein Wechsel dauert (größer = langsamer)', rangeCtl('mediaBar.transition', 0.3, 3, 0.1, function (v) { return v.toFixed(1) + ' s'; })));
       add(row('Text-Animation', 'Wie Titel, Infos und Buttons erscheinen', selectCtl('mediaBar.text', TEXT_ANIMS)));
       add(row('Anzeigedauer', 'Pro Titel', rangeCtl('mediaBar.interval', 4, 20, 1, sec)));
       add(row('Beim Überfahren mit der Maus anhalten', null, toggleCtl('mediaBar.pauseOnHover')));
@@ -1093,12 +1305,34 @@
       add(row('Trailer im Hintergrund', 'Startet kurz nach dem Wechsel, ersetzt das Bild', selectCtl('mediaBar.trailers', TRAILERS)));
       add(row('Trailer mit Ton starten', null, toggleCtl('mediaBar.trailerSound')));
       add(el('div', { class: 'jdx-buttons' }, [el('button', { class: 'jdx-b', type: 'button', text: 'Neue Titel laden', onclick: function () { refreshMediaBar(true); } })]));
+    } else if (activeTab === 'ratings') {
+      add(el('h3', { text: 'Quellen' }));
+      add(row('IMDb', 'Benötigt einen OMDb-Schlüssel (unten) – ohne Schlüssel wird ersatzweise die Community-Bewertung (★) gezeigt', toggleCtl('ratings.imdb')));
+      add(row('Rotten Tomatoes', 'Ohne Schlüssel: Kritiker-Wertung aus Jellyfin', toggleCtl('ratings.rt')));
+      add(row('Metacritic', 'Benötigt einen OMDb-Schlüssel', toggleCtl('ratings.mc')));
+      add(row('Community-Bewertung (★)', 'Bewertung aus den Jellyfin-Metadaten (meist TMDB)', toggleCtl('ratings.community')));
+      add(el('h3', { text: 'Anzeige' }));
+      add(row('In der Media Bar', null, toggleCtl('ratings.inMediaBar')));
+      add(row('Auf Film- und Serienseiten', 'Unter der Infozeile (Jahr, Laufzeit …)', toggleCtl('ratings.onDetails')));
+      add(row('Jellyfins eigene Sterne/Tomaten dort ausblenden', 'Vermeidet doppelte Angaben', toggleCtl('ratings.hideJellyfinRatings')));
+      add(row('Größe', null, rangeCtl('ratings.size', 0.7, 1.8, 0.05, function (v) { return Math.round(v * 100) + ' %'; })));
+      add(row('Darstellung', null, selectCtl('ratings.style', [['badges', 'Farbige Plaketten'], ['plain', 'Schlicht (nur Symbol und Wert)']])));
+      add(el('h3', { text: 'OMDb-Schlüssel' }));
+      var keyInput = el('input', { type: 'text', spellcheck: 'false', placeholder: 'z. B. a1b2c3d4', value: S.ratings.omdbKey || '' });
+      keyInput.addEventListener('change', function () { S.ratings.omdbKey = keyInput.value.trim(); omdbMem = {}; changed('ratings.omdbKey'); });
+      var keyOut = el('small', { class: 'jdx-keyout' });
+      add(el('div', { class: 'jdx-row' }, [el('label', null, ['API-Schlüssel', el('small', { text: 'Kostenlos unter omdbapi.com → „API Key“ (1.000 Abfragen/Tag). Ergebnisse werden 14 Tage zwischengespeichert.' }), keyOut]),
+        el('div', { class: 'jdx-range' }, [keyInput, el('button', { class: 'jdx-b', type: 'button', text: 'Testen', onclick: function () { S.ratings.omdbKey = keyInput.value.trim(); save(); testOmdbKey(keyOut); } })])]));
     } else if (activeTab === 'anim') {
       add(el('h3', { text: 'Hover über Poster und Medienfelder' }));
       add(tiles('hover', HOVERS));
       add(el('div', { class: 'jdx-row' }, [el('label', null, ['Vorschau', el('small', { text: 'Mit der Maus über die Karten fahren' })]), hoverPreview()]));
       add(el('h3', { text: 'Allgemein' }));
       add(row('Seitenwechsel', 'Animation beim Öffnen einer Seite', selectCtl('pageAnim', PAGE_ANIMS)));
+      var sysReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      add(row('Animationen reduzieren', sysReduced
+        ? 'Hinweis: In Windows sind „Animationseffekte“ ausgeschaltet. JellyDrax zeigt Animationen trotzdem, solange dieser Schalter aus ist.'
+        : 'Schaltet Übergänge und Bewegungen weitgehend ab', toggleCtl('reduceMotion')));
       add(row('Geschwindigkeit', 'Faktor für alle Animationen (kleiner = schneller)', rangeCtl('speed', 0.5, 2, 0.1, function (v) { return v.toFixed(1) + '×'; })));
     } else if (activeTab === 'home') {
       add(row('Hintergrundbilder aus der Mediathek', 'Standard: aus – der Hintergrund bleibt einfarbig', toggleCtl('backdrops')));
@@ -1257,6 +1491,7 @@
     silencePluginBar();
     if (S.liquid) ensureLiquidFilter();
     refreshMediaBar(false);
+    ensureDetailRatings();
   }
 
   window.JellyDrax = {

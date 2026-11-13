@@ -310,6 +310,36 @@ public sealed class MainForm : Form
         await RegisterClientScriptAsync(); // beim nächsten Laden aktuelle Werte
     }
 
+    /// <summary>
+    /// Ruft Bewertungen (IMDb/Rotten Tomatoes/Metacritic) über die OMDb-API ab und gibt sie an die Seite zurück.
+    /// Aus Sicherheitsgründen ausschließlich https://www.omdbapi.com.
+    /// </summary>
+    private async Task ProxyFetchAsync(string? id, string? url)
+    {
+        if (_core == null || string.IsNullOrEmpty(id)) return;
+        object result;
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps ||
+            !(uri.Host.Equals("www.omdbapi.com", StringComparison.OrdinalIgnoreCase) || uri.Host.Equals("omdbapi.com", StringComparison.OrdinalIgnoreCase)))
+        {
+            result = new { jdx = "fetchResult", id, ok = false, error = "Adresse nicht erlaubt" };
+        }
+        else
+        {
+            try
+            {
+                using var response = await _http.GetAsync(uri);
+                var body = await response.Content.ReadAsStringAsync();
+                // OMDb antwortet bei falschem Schlüssel mit 401 und JSON-Fehlertext -> trotzdem weiterreichen
+                result = new { jdx = "fetchResult", id, ok = response.IsSuccessStatusCode || response.StatusCode == System.Net.HttpStatusCode.Unauthorized, status = (int)response.StatusCode, body };
+            }
+            catch (Exception ex)
+            {
+                result = new { jdx = "fetchResult", id, ok = false, error = ex.Message };
+            }
+        }
+        _core?.PostWebMessageAsJson(JsonSerializer.Serialize(result));
+    }
+
     /// <summary>Färbt die Windows-Titelleiste passend zum Theme (ab Windows 11; unter Windows 10 ohne Wirkung).</summary>
     private void SetTitleBarColors(string? caption, string? text)
     {
@@ -384,6 +414,9 @@ public sealed class MainForm : Form
                         break;
                     case "chrome":
                         SetTitleBarColors((string?)msg!["caption"], (string?)msg["text"]);
+                        break;
+                    case "fetch":
+                        await ProxyFetchAsync((string?)msg!["id"], (string?)msg["url"]);
                         break;
                 }
             }

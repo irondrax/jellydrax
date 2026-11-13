@@ -29,19 +29,23 @@ Rechtsklick-Menü der Titelleiste. Alle Änderungen sind sofort sichtbar und wer
   zweiten Akzent, Hintergrund, Flächen, Bedienelemente und Text. Hintergrund-Stil (Farbschein, Verlauf, einfarbig),
   Eckenradius, Schriftart, Glas-Optik (für jedes Theme zuschaltbar). Die Windows-Titelleiste übernimmt die Theme-Farbe.
 - **Media Bar**
-  - Stile: *Kino* (volle Breite, bis unter die Kopfleiste), *Zentriert*, *Karte* (Glas-Infofeld),
-    *Geteilt* (Text links, Bild rechts), *Poster*, *Kompakt*
+  - 12 Stile: *Kino* (volle Breite, bis unter die Kopfleiste), *Zentriert*, *Karte* (Glas-Infofeld),
+    *Geteilt* (Text links, Bild rechts), *Poster*, *Kompakt*, *Spotlight* (Text rechts), *Karussell*
+    (Nachbarn seitlich sichtbar), *Bühne* (ganzes Bild im Rahmen), *Diagonal*, *Magazin*, *Minimal*
   - Übergänge: Überblenden, Ken Burns, Schieben, Zoom, Unschärfe, Wischen, Kreis-Enthüllung, 3D-Würfel
-  - Text-Animationen, Indikator (Fortschrittsbalken, Punkte, Vorschaubilder, Zähler), Höhe, Anzeigedauer
+  - Übergangsdauer per Regler (0,3–3 s), Text-Animationen, Indikator (Fortschrittsbalken, Punkte, Vorschaubilder, Zähler), Höhe, Anzeigedauer
   - Inhalt: zufällig, neu hinzugefügt, neueste Veröffentlichungen, am besten bewertet, ungesehen, Favoriten;
     Filme/Serien/Musikalben/Sammlungen; Anzahl
   - Logo statt Titel, Bewertung/Jahr/Laufzeit/FSK/Genres, Beschreibung
   - Buttons *Abspielen/Fortsetzen* (Serien: nächste Folge), *Mehr Infos*, *Favorit*
   - Trailer im Hintergrund (lokal oder zusätzlich YouTube), optional mit Ton
+- **Bewertungen** – IMDb, Rotten Tomatoes, Metacritic (und Community ★) in der Media Bar und auf
+  Film-/Serienseiten; jede Quelle schaltbar, Größe per Regler. IMDb/Metacritic über einen kostenlosen
+  OMDb-Schlüssel (omdbapi.com), Ergebnisse werden 14 Tage zwischengespeichert.
 - **Animationen** – Hover über Poster/Medienfelder: *Elegant* (wie ElegantFin: feiner Rahmen wird weiß,
   leichter Zoom, Lichtstreifen über das Bild), Anheben, Bild-Zoom,
   Leuchten, 3D-Kippen, Lichtreflex, keine – mit Live-Vorschau. Seitenwechsel-Animation und
-  Geschwindigkeit aller Animationen.
+  Geschwindigkeit aller Animationen, Schalter „Animationen reduzieren“ (unabhängig von der Windows-Einstellung).
 - **Startseite** – Hintergrundbilder aus der Mediathek (Standard: aus), Banner auf Film-/Serienseiten
   (Farbverlauf oder Bild), Rubriken-Reihe zentrieren,
   Titel der ersten Rubrik („Meine Medien“) ausblenden, Plugin-Media-Bar ausblenden (inkl. des Platzes, den das Plugin auf der Startseite reserviert, und seiner Trailer).
@@ -49,11 +53,11 @@ Rechtsklick-Menü der Titelleiste. Alle Änderungen sind sofort sichtbar und wer
 
 ## Installation
 
-**Installer:** `JellyDrax-Setup-2.2.0.exe` ausführen. Installiert pro Benutzer (keine Adminrechte) nach
+**Installer:** `JellyDrax-Setup-2.3.0.exe` ausführen. Installiert pro Benutzer (keine Adminrechte) nach
 `%LOCALAPPDATA%\Programs\JellyDrax`, legt einen **Startmenü-Eintrag** an (optional Desktop-Verknüpfung) und
 erscheint unter *Einstellungen → Apps → Installierte Apps*. Eine vorhandene Installation von
 „Jellyfin Desktop“ wird ersetzt – Server, Anmeldung und Fensterposition werden übernommen.
-Stille Installation: `JellyDrax-Setup-2.2.0.exe /S`.
+Stille Installation: `JellyDrax-Setup-2.3.0.exe /S`.
 
 **Ohne Installation:** `JellyDrax.exe` direkt ausführen (kein .NET nötig).
 
@@ -89,7 +93,7 @@ Alles andere transkodiert der Server automatisch.
 
 ```
 dotnet publish src/JellyDrax -c Release -o dist
-makensis -DVERSION=2.2.0 installer/JellyDrax.nsi
+makensis -DVERSION=2.3.0 installer/JellyDrax.nsi
 ```
 
 Benötigt das .NET 8 SDK und für den Installer [NSIS](https://nsis.sourceforge.io).
