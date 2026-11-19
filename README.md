@@ -53,11 +53,11 @@ Rechtsklick-Menü der Titelleiste. Alle Änderungen sind sofort sichtbar und wer
 
 ## Installation
 
-**Installer:** `JellyDrax-Setup-2.3.0.exe` ausführen. Installiert pro Benutzer (keine Adminrechte) nach
+**Installer:** `JellyDrax-Setup-2.3.1.exe` ausführen. Installiert pro Benutzer (keine Adminrechte) nach
 `%LOCALAPPDATA%\Programs\JellyDrax`, legt einen **Startmenü-Eintrag** an (optional Desktop-Verknüpfung) und
 erscheint unter *Einstellungen → Apps → Installierte Apps*. Eine vorhandene Installation von
 „Jellyfin Desktop“ wird ersetzt – Server, Anmeldung und Fensterposition werden übernommen.
-Stille Installation: `JellyDrax-Setup-2.3.0.exe /S`.
+Stille Installation: `JellyDrax-Setup-2.3.1.exe /S`.
 
 **Ohne Installation:** `JellyDrax.exe` direkt ausführen (kein .NET nötig).
 
@@ -93,7 +93,7 @@ Alles andere transkodiert der Server automatisch.
 
 ```
 dotnet publish src/JellyDrax -c Release -o dist
-makensis -DVERSION=2.3.0 installer/JellyDrax.nsi
+makensis -DVERSION=2.3.1 installer/JellyDrax.nsi
 ```
 
 Benötigt das .NET 8 SDK und für den Installer [NSIS](https://nsis.sourceforge.io).

@@ -209,10 +209,15 @@
       styleVars = el('style', { id: 'jdx-style-vars' });
       styleCustom = el('style', { id: 'jdx-style-custom' });
     }
-    // immer am Ende des <head>, damit sie nach Jellyfins Theme-CSS greifen
-    [styleBase, styleVars, styleCustom].forEach(function (s) {
-      if (s.parentNode !== head || s !== head.lastElementChild) head.appendChild(s);
-    });
+    // Immer am Ende des <head> (in dieser Reihenfolge), damit sie nach Jellyfins Theme-CSS greifen.
+    // Nur neu einhängen, wenn etwas dahinter eingefügt wurde – jedes Umhängen löst eine
+    // Neuberechnung aller Styles der Seite aus.
+    if (head.lastElementChild === styleCustom &&
+        styleCustom.previousElementSibling === styleVars &&
+        styleVars.previousElementSibling === styleBase) return;
+    head.appendChild(styleBase);
+    head.appendChild(styleVars);
+    head.appendChild(styleCustom);
   }
 
   function buildVars() {
@@ -447,7 +452,7 @@
   }
 
   // Bewertungen auf Film- und Serienseiten
-  var detailItemCache = {};
+  var detailItemCache = {}, noRatingIds = {};
   function ensureDetailRatings() {
     if (!S.ratings.onDetails) { document.querySelectorAll('.jdx-detail-ratings').forEach(function (n) { n.remove(); }); return; }
     var page = Array.prototype.filter.call(document.querySelectorAll('.itemDetailPage'), function (p) { return !p.classList.contains('hide') && p.getClientRects().length; })[0];
@@ -455,6 +460,7 @@
     var m = /[?&]id=([0-9a-f]{32})/i.exec(location.href);
     if (!m) return;
     var id = m[1].toLowerCase();
+    if (noRatingIds[id]) return;
     var host = page.querySelector('.itemMiscInfo-primary') || page.querySelector('.itemMiscInfo');
     if (!host || !host.parentNode) return;
     var box = page.querySelector('.jdx-detail-ratings');
@@ -466,7 +472,7 @@
     if (!a || !uid) return;
     var load = detailItemCache[id] ? Promise.resolve(detailItemCache[id]) : a.getItem(uid, id).then(function (it) { detailItemCache[id] = it; return it; });
     load.then(function (item) {
-      if (!item || ['Movie', 'Series', 'Episode', 'Season'].indexOf(item.Type) < 0) { box.remove(); return; }
+      if (!item || ['Movie', 'Series', 'Episode', 'Season'].indexOf(item.Type) < 0) { noRatingIds[id] = true; box.remove(); return; }
       fillRatings(box, item);
     }).catch(function () { box.remove(); });
   }
@@ -483,7 +489,7 @@
 
   // ======================================================== Media Bar
 
-  var MB = { el: null, items: [], idx: 0, key: '', loadedAt: 0, timer: null, timerEnd: 0, remaining: 0, paused: false, hovering: false, visible: false, loading: false, trailerTimer: null, muted: true };
+  var MB = { inView: true, el: null, items: [], idx: 0, key: '', loadedAt: 0, timer: null, timerEnd: 0, remaining: 0, paused: false, hovering: false, visible: false, loading: false, trailerTimer: null, muted: true };
 
   function api() { return window.ApiClient; }
   function userId() { try { return api() && api().getCurrentUserId(); } catch (e) { return null; } }
@@ -709,6 +715,13 @@
       if (Math.abs(dx) > 60) { dx < 0 ? next() : prev(); }
     });
     tab.insertBefore(MB.el, tab.firstChild);
+    // außerhalb des sichtbaren Bereichs (weit nach unten gescrollt) pausieren: kein Timer, keine Trailer
+    if (window.IntersectionObserver) {
+      new IntersectionObserver(function (entries) {
+        MB.inView = entries[entries.length - 1].isIntersecting;
+        syncPause();
+      }, { threshold: 0.15 }).observe(MB.el);
+    }
     applyMediaBarAttrs();
   }
 
@@ -783,7 +796,7 @@
   }
 
   function syncPause() {
-    var shouldPause = !MB.visible || document.hidden || (S.mediaBar.pauseOnHover && MB.hovering) || !!document.getElementById('jdx-settings');
+    var shouldPause = !MB.visible || !MB.inView || document.hidden || (S.mediaBar.pauseOnHover && MB.hovering) || !!document.getElementById('jdx-settings');
     if (shouldPause === MB.paused) return;
     MB.paused = shouldPause;
     if (!MB.el) return;
@@ -793,7 +806,7 @@
       clearTimeout(MB.timer);
       MB.remaining = Math.max(500, MB.timerEnd - Date.now());
       if (v) v.pause();
-      if (!MB.visible) stopTrailer();
+      if (!MB.visible || !MB.inView) stopTrailer();
     } else {
       MB.timerEnd = Date.now() + MB.remaining;
       if (MB.items.length > 1) MB.timer = setTimeout(next, MB.remaining);
@@ -946,6 +959,7 @@
 
   function removeMediaBar() {
     if (MB.el) { stopTrailer(); clearTimeout(MB.timer); MB.el.remove(); }
+    MB.inView = true;
     MB.el = null; MB.items = []; MB.key = '';
     document.documentElement.classList.remove('jdx-hero-top');
   }
@@ -988,7 +1002,7 @@
   }
 
   function updateHeroHeader() {
-    var on = !!(MB.el && MB.visible && S.mediaBar.enabled && S.mediaBar.style === 'cinema' && window.scrollY < 60);
+    var on = !!(MB.el && MB.visible && S.mediaBar.enabled && PULL_STYLES.indexOf(S.mediaBar.style) >= 0 && window.scrollY < 60);
     document.documentElement.classList.toggle('jdx-hero-top', on);
   }
 

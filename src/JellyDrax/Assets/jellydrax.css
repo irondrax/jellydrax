@@ -462,7 +462,10 @@ html.jdx.jdx-liquid:not(.transparentDocument) body::before {
     radial-gradient(40% 44% at 65% 85%, rgba(var(--jdx-accent-rgb), 0.35), transparent 70%),
     radial-gradient(30% 36% at 15% 85%, rgba(var(--jdx-accent2-rgb), 0.3), transparent 70%),
     var(--jdx-bg);
-  filter: blur(40px) saturate(1.3);
+  /* keine Unschärfe: die Verläufe sind bereits weich, und blur() müsste bei der Bewegung
+     in jedem Bild über die ganze Fläche neu berechnet werden (optisch identisch, siehe Pixelvergleich) */
+  filter: saturate(1.3);
+  will-change: transform;
   animation: jdx-liquid-drift calc(38s * var(--jdx-speed)) ease-in-out infinite alternate;
 }
 html.jdx.jdx-liquid .backgroundContainer:not(.backgroundContainer-transparent) { background: transparent !important; }
@@ -687,8 +690,6 @@ html.jdx.jdx-liquid #jdx-settings .jdx-b { border-radius: 999px; }
   color: rgba(255, 255, 255, 0.88);
   text-shadow: 0 1px 8px rgba(0, 0, 0, 0.6);
 }
-.jdx-meta .jdx-star { color: #f5c518; font-weight: 700; }
-.jdx-meta .jdx-rt { color: #ff6b4a; font-weight: 700; }
 .jdx-meta .jdx-badge {
   border: 1px solid rgba(255, 255, 255, 0.5);
   border-radius: 4px;
@@ -851,11 +852,20 @@ html.jdx-own-ratings .itemDetailPage .itemMiscInfo .mediaInfoCriticRating { disp
   cursor: pointer;
   background: rgba(255, 255, 255, 0.25);
 }
-.jdx-ind-bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--jdx-accent), var(--jdx-accent2)); }
-.jdx-ind-bar.is-done i { width: 100%; }
+/* Fortschritt per transform statt width: läuft auf der Grafikkarte, ohne Layout-Neuberechnung je Bild */
+.jdx-ind-bar i,
+.jdx-ind-line i {
+  display: block;
+  height: 100%;
+  width: 100%;
+  transform: scaleX(0);
+  transform-origin: left center;
+  background: linear-gradient(90deg, var(--jdx-accent), var(--jdx-accent2));
+}
+.jdx-ind-bar.is-done i { transform: none; }
 .jdx-ind-bar.is-active i { animation: jdx-fill var(--jdx-mb-interval, 8s) linear forwards; }
 .jdx-mb.is-paused .jdx-ind-bar.is-active i { animation-play-state: paused; }
-@keyframes jdx-fill { from { width: 0; } to { width: 100%; } }
+@keyframes jdx-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 
 .jdx-mb[data-ind="thumbs"] .jdx-mb-ind {
   right: 3vw;
@@ -891,7 +901,7 @@ html.jdx-own-ratings .itemDetailPage .itemMiscInfo .mediaInfoCriticRating { disp
 .jdx-ind-counter b { font-size: 1.6em; color: var(--jdx-accent); }
 .jdx-ind-counter span { opacity: 0.7; }
 .jdx-ind-line { width: 120px; height: 3px; background: rgba(255, 255, 255, 0.25); border-radius: 3px; overflow: hidden; }
-.jdx-ind-line i { display: block; height: 100%; background: var(--jdx-accent); animation: jdx-fill var(--jdx-mb-interval, 8s) linear forwards; }
+.jdx-ind-line i { background: var(--jdx-accent); animation: jdx-fill var(--jdx-mb-interval, 8s) linear forwards; }
 .jdx-mb.is-paused .jdx-ind-line i { animation-play-state: paused; }
 
 /* ------------------------------------------------------- Stil: Kino */
