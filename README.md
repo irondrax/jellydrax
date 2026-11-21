@@ -1,9 +1,12 @@
 # JellyDrax
 
-Jellyfin-Client für **Windows 11** (und Windows 10) mit **eigenem Design**, **Themes** und einer
+Jellyfin-Client für **Windows 11** (und Windows 10) und **Linux** (CachyOS/Arch, Pop!_OS/Ubuntu, Fedora u. a.) mit **eigenem Design**, **Themes** und einer
 **Media Bar** auf der Startseite. Die App ist ein natives Fenster mit Microsoft Edge **WebView2** und lädt
 das Web-Interface **direkt vom eigenen Jellyfin-Server** (`<server>/web/`). Darüber legt JellyDrax sein
 eigenes Erscheinungsbild – unabhängig vom Branding-CSS des Servers.
+
+Unter Linux läuft JellyDrax in Electron – dieselbe Chromium-Engine wie WebView2 unter Windows, daher
+identisches Aussehen. Beide Versionen teilen sich `jellydrax.js`, `jellydrax.css` und die Verbindungsseite.
 
 Entwickelt für **Jellyfin 12.4** (funktioniert auch mit 10.10/10.11).
 
@@ -53,11 +56,11 @@ Rechtsklick-Menü der Titelleiste. Alle Änderungen sind sofort sichtbar und wer
 
 ## Installation
 
-**Installer:** `JellyDrax-Setup-2.3.1.exe` ausführen. Installiert pro Benutzer (keine Adminrechte) nach
+**Installer:** `JellyDrax-Setup-2.4.0.exe` ausführen. Installiert pro Benutzer (keine Adminrechte) nach
 `%LOCALAPPDATA%\Programs\JellyDrax`, legt einen **Startmenü-Eintrag** an (optional Desktop-Verknüpfung) und
 erscheint unter *Einstellungen → Apps → Installierte Apps*. Eine vorhandene Installation von
 „Jellyfin Desktop“ wird ersetzt – Server, Anmeldung und Fensterposition werden übernommen.
-Stille Installation: `JellyDrax-Setup-2.3.1.exe /S`.
+Stille Installation: `JellyDrax-Setup-2.4.0.exe /S`.
 
 **Ohne Installation:** `JellyDrax.exe` direkt ausführen (kein .NET nötig).
 
@@ -73,11 +76,47 @@ JellyDrax.exe --reset                                # gespeicherten Server verg
 Strg+, Design & Media Bar · F11 / Alt+Enter Vollbild · F5 neu laden · Strg+F5 ohne Cache ·
 Strg+Umschalt+S Server wechseln · F12 Entwicklertools · Strg+Mausrad / Strg+0 Zoom
 
+## Linux
+
+Pakete für x86_64 liegen bei jedem [Release](https://github.com/irondrax/jellydrax/releases):
+
+| Distribution | Datei | Installation |
+|---|---|---|
+| CachyOS / Arch | `JellyDrax-<version>-x64.pacman` | `sudo pacman -U JellyDrax-<version>-x64.pacman` |
+| Pop!_OS / Ubuntu | `JellyDrax-<version>-amd64.deb` | `sudo apt install ./JellyDrax-<version>-amd64.deb` |
+| Fedora | `JellyDrax-<version>-x86_64.rpm` | `sudo dnf install ./JellyDrax-<version>-x86_64.rpm` |
+| alle | `JellyDrax-<version>-x86_64.AppImage` | `chmod +x` und starten |
+
+- Danach im App-Menü unter **JellyDrax** (KDE Plasma, GNOME, COSMIC). Start im Terminal: `jellydrax`.
+- **Pop!_OS/Ubuntu:** das `.deb` verwenden – es installiert das AppArmor-Profil, ohne das Electron-Apps
+  ab Ubuntu 24.04 nicht starten (beim AppImage fehlt es).
+- **Fedora + AppImage:** benötigt `sudo dnf install fuse-libs`.
+- Menü mit **Alt** einblenden. Tastenkürzel wie unter Windows.
+- Daten: `~/.config/JellyDrax`. Wayland wird automatisch genutzt, sonst X11. Medientasten/MPRIS funktionieren.
+- Optionen: `jellydrax --server <url>`, `jellydrax --reset`, `jellydrax --enable-vaapi`
+  (Hardware-Videodekodierung über VA-API, je nach Treiber).
+- Unterschiede zu Windows: Die Fensterleiste gehört unter Linux der Desktop-Umgebung und übernimmt daher
+  nicht die Theme-Farbe (sie ist dunkel); kein portabler Modus.
+
+### Selbst bauen (Linux)
+
+```
+cd linux
+npm ci
+npm run dist        # AppImage, deb, rpm, pacman in linux/dist
+npm start           # direkt starten (Entwicklung)
+```
+
+Für rpm/pacman werden `rpmbuild` und `bsdtar` benötigt (Ubuntu: `sudo apt install rpm libarchive-tools`).
+
 ## Codecs
 
 Die Wiedergabe nutzt die Codecs von Microsoft Edge. H.264/AAC/VP9/AV1 laufen direkt;
 **HEVC/H.265** direkt, wenn die GPU es kann und die *HEVC-Videoerweiterungen* installiert sind.
 Alles andere transkodiert der Server automatisch.
+
+Unter Linux (Electron/Chromium) laufen H.264/AAC/VP9/AV1/Opus direkt; HEVC/H.265 transkodiert der
+Server, sofern nicht `--enable-vaapi` und ein passender VA-API-Treiber die Hardware-Dekodierung übernehmen.
 
 ## Aufbau
 
@@ -88,13 +127,17 @@ Alles andere transkodiert der Server automatisch.
 | `src/JellyDrax/Assets/jellydrax.css` | Design, Hover-Effekte, Media-Bar-Stile und -Übergänge |
 | `src/JellyDrax/Assets/app.html` | Verbindungs- und Fehlerseite |
 | `installer/JellyDrax.nsi` | Installer (NSIS) |
+| `linux/main.js` | Linux-App (Electron): Fenster, Tastenkürzel, Einbindung des Designs, Filter für Server-CSS |
+| `linux/preload.js` | Brücke zwischen Seite und App (entspricht WebView2-Nachrichten unter Windows) |
+| `linux/package.json` | Paketdefinition für AppImage, deb, rpm, pacman |
 
 ## Selbst bauen
 
 ```
 dotnet publish src/JellyDrax -c Release -o dist
-makensis -DVERSION=2.3.1 installer/JellyDrax.nsi
+makensis -DVERSION=2.4.0 installer/JellyDrax.nsi
 ```
 
 Benötigt das .NET 8 SDK und für den Installer [NSIS](https://nsis.sourceforge.io).
-Der GitHub-Workflow in `.github/workflows/build.yml` baut beides.
+Der GitHub-Workflow in `.github/workflows/build.yml` baut Windows- und Linux-Pakete und legt bei
+einer neuen Versionsnummer automatisch ein Release an.

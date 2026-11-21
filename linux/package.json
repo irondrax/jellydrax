@@ -1,0 +1,69 @@
+{
+  "name": "jellydrax",
+  "productName": "JellyDrax",
+  "version": "2.4.0",
+  "description": "Jellyfin-Client mit eigenem Design, Themes und Media Bar",
+  "homepage": "https://github.com/irondrax/jellydrax",
+  "author": {
+    "name": "irondrax",
+    "email": "irondrax@users.noreply.github.com"
+  },
+  "license": "UNLICENSED",
+  "private": true,
+  "main": "main.js",
+  "desktopName": "jellydrax.desktop",
+  "scripts": {
+    "prepare-assets": "node scripts/prepare-assets.js",
+    "start": "npm run prepare-assets && electron .",
+    "dist": "npm run prepare-assets && electron-builder --linux --publish never"
+  },
+  "devDependencies": {
+    "electron": "45.2.3",
+    "electron-builder": "26.18.1"
+  },
+  "build": {
+    "appId": "de.irondrax.jellydrax",
+    "productName": "JellyDrax",
+    "executableName": "jellydrax",
+    "artifactName": "JellyDrax-${version}-${arch}.${ext}",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "assets/**",
+      "build/icons/512x512.png"
+    ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb",
+        "rpm",
+        "pacman"
+      ],
+      "category": "AudioVideo",
+      "icon": "build/icons",
+      "synopsis": "Jellyfin-Client mit eigenem Design und Media Bar",
+      "description": "Jellyfin-Client mit eigenem Design, Themes und Media Bar",
+      "desktop": {
+        "entry": {
+          "Name": "JellyDrax",
+          "GenericName": "Jellyfin-Client",
+          "Comment": "Filme und Serien von deinem Jellyfin-Server",
+          "Categories": "AudioVideo;Video;Player;",
+          "Keywords": "Jellyfin;Media;Filme;Serien;"
+        }
+      },
+      "syncDesktopName": true
+    },
+    "deb": {
+      "packageCategory": "video"
+    },
+    "rpm": {
+      "packageCategory": "Applications/Multimedia"
+    },
+    "publish": []
+  }
+}

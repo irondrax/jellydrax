@@ -14,6 +14,8 @@
   if (!/^https?:$/.test(location.protocol)) return;
 
   var VERSION = window.__JDX_VERSION__ || 'dev';
+  // Verbindung zur Desktop-App: WebView2 unter Windows, Electron-Preload (window.jdxHost) unter Linux
+  var HOST = (window.chrome && window.chrome.webview) || window.jdxHost || null;
   var CSS = window.__JDX_CSS__ || '';
   var STORAGE_KEY = 'jellydrax-settings';
 
@@ -185,7 +187,7 @@
     saveTimer = setTimeout(function () {
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(S)); } catch (e) { /* ignorieren */ }
       try {
-        if (window.chrome && window.chrome.webview) window.chrome.webview.postMessage({ jdx: 'save', settings: S });
+        if (HOST) HOST.postMessage({ jdx: 'save', settings: S });
       } catch (e) { /* ignorieren */ }
     }, 250);
   }
@@ -337,7 +339,7 @@
     var key = JSON.stringify(msg);
     if (key === lastWindowColors) return;
     lastWindowColors = key;
-    try { if (window.chrome && window.chrome.webview) window.chrome.webview.postMessage(msg); } catch (e) { /* ignorieren */ }
+    try { if (HOST) HOST.postMessage(msg); } catch (e) { /* ignorieren */ }
   }
 
   // Media Bar eines Server-Plugins: ausgeblendet, aber deren Trailer laufen sonst unsichtbar weiter
@@ -359,8 +361,8 @@
   // Ohne Schlüssel: Kritiker-Wertung (Rotten Tomatoes) und Community-Wertung aus Jellyfin.
 
   var fetchSeq = 0, fetchWaiters = {};
-  if (window.chrome && window.chrome.webview) {
-    window.chrome.webview.addEventListener('message', function (ev) {
+  if (HOST) {
+    HOST.addEventListener('message', function (ev) {
       var m = ev.data;
       if (!m || m.jdx !== 'fetchResult' || !fetchWaiters[m.id]) return;
       var w = fetchWaiters[m.id]; delete fetchWaiters[m.id];
@@ -370,11 +372,11 @@
 
   // Abruf über die Desktop-App (kein CORS-Problem), sonst direkt
   function hostFetchJson(url) {
-    if (window.chrome && window.chrome.webview) {
+    if (HOST) {
       return new Promise(function (resolve, reject) {
         var id = 'f' + (++fetchSeq);
         fetchWaiters[id] = { resolve: resolve, reject: reject };
-        window.chrome.webview.postMessage({ jdx: 'fetch', id: id, url: url });
+        HOST.postMessage({ jdx: 'fetch', id: id, url: url });
         setTimeout(function () { if (fetchWaiters[id]) { delete fetchWaiters[id]; reject(new Error('Zeitüberschreitung')); } }, 15000);
       }).then(function (body) { return JSON.parse(body); });
     }

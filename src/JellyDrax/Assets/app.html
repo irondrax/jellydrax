@@ -111,7 +111,9 @@
 (function () {
   const S = window.__STATE__ || { mode: "connect", recent: [] };
   const $ = (id) => document.getElementById(id);
-  const post = (m) => window.chrome && window.chrome.webview && window.chrome.webview.postMessage(m);
+  // WebView2 (Windows) oder Electron-Preload (Linux)
+  const HOST = (window.chrome && window.chrome.webview) || window.jdxHost || null;
+  const post = (m) => HOST && HOST.postMessage(m);
   let busy = false;
 
   function setMsg(text, kind, spin) {
@@ -158,8 +160,8 @@
     $("recentBox").classList.toggle("hidden", !(S.recent && S.recent.length));
   }
 
-  if (window.chrome && window.chrome.webview) {
-    window.chrome.webview.addEventListener("message", function (ev) {
+  if (HOST) {
+    HOST.addEventListener("message", function (ev) {
       const m = ev.data || {};
       if (m.type !== "connectResult") return;
       if (m.ok) { setMsg("Verbunden: " + m.name + " (Jellyfin " + m.version + ")", "ok"); }
