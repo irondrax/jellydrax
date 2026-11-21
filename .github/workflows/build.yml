@@ -6,11 +6,21 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write   # zum Anlegen von Releases
+  contents: write   # Releases anlegen und Dateien hochladen
+  actions: write    # alte Build-Artefakte löschen
+
+# Release: bei einem Versions-Tag oder wenn auf main eine neue Versionsnummer (<Version> in
+# src/JellyDrax/JellyDrax.csproj) ankommt, für die es noch kein Release gibt. Jeder Job lädt seine
+# Dateien direkt ins Release (Release-Dateien zählen nicht zum Artefakt-Speicherkontingent).
+env:
+  PUBLISH: ${{ startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main' }}
 
 jobs:
   windows:
     runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-dotnet@v5
@@ -18,28 +28,35 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Version bestimmen
-        shell: bash
-        run: |
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
-          else
-            echo "VERSION=$(grep -oP '(?<=<Version>)[^<]+' src/JellyDrax/JellyDrax.csproj)" >> "$GITHUB_ENV"
-          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/scripts/version.sh
 
       - name: EXE bauen
-        shell: bash
+        if: env.SKIP != 'true'
         run: dotnet publish src/JellyDrax -c Release -o dist -p:Version="$VERSION"
 
       - name: NSIS installieren
+        if: env.SKIP != 'true'
+        shell: pwsh
         run: choco install nsis -y --no-progress
 
       - name: Installer bauen
+        if: env.SKIP != 'true'
         shell: cmd
         run: '"%ProgramFiles(x86)%\NSIS\makensis.exe" -DVERSION=%VERSION% installer\JellyDrax.nsi'
 
+      - name: Ins Release hochladen
+        if: env.SKIP != 'true' && env.PUBLISH == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/scripts/publish.sh dist/JellyDrax.exe "dist/JellyDrax-Setup-$VERSION.exe"
+
       - uses: actions/upload-artifact@v5
+        if: env.SKIP != 'true' && env.PUBLISH != 'true'
         with:
           name: JellyDrax-windows
+          retention-days: 3
           path: |
             dist/JellyDrax.exe
             dist/JellyDrax-Setup-*.exe
@@ -55,66 +72,47 @@ jobs:
           cache-dependency-path: linux/package-lock.json
 
       - name: Version bestimmen
-        run: |
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
-          else
-            echo "VERSION=$(grep -oP '(?<=<Version>)[^<]+' src/JellyDrax/JellyDrax.csproj)" >> "$GITHUB_ENV"
-          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/scripts/version.sh
 
       - name: Werkzeuge für rpm- und pacman-Pakete
+        if: env.SKIP != 'true'
         run: sudo apt-get update -qq && sudo apt-get install -y -qq rpm libarchive-tools
 
       - name: Pakete bauen (AppImage, deb, rpm, pacman)
+        if: env.SKIP != 'true'
         working-directory: linux
         run: |
           npm ci
           npm version "$VERSION" --no-git-tag-version --allow-same-version
           npm run dist
 
+      - name: Ins Release hochladen
+        if: env.SKIP != 'true' && env.PUBLISH == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/scripts/publish.sh linux/dist/*.AppImage linux/dist/*.deb linux/dist/*.rpm linux/dist/*.pacman
+
       - uses: actions/upload-artifact@v5
+        if: env.SKIP != 'true' && env.PUBLISH != 'true'
         with:
           name: JellyDrax-linux
+          retention-days: 3
           path: |
             linux/dist/*.AppImage
             linux/dist/*.deb
             linux/dist/*.rpm
             linux/dist/*.pacman
 
-  # Release automatisch: bei einem Versions-Tag oder wenn auf main eine neue Versionsnummer
-  # (<Version> in JellyDrax.csproj) ankommt, für die es noch kein Release gibt.
-  release:
-    needs: [windows, linux]
-    if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main'
+  # Alte Build-Artefakte löschen (die Dateien liegen ohnehin in den Releases)
+  cleanup:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-
-      - name: Version bestimmen
-        run: |
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
-          else
-            echo "VERSION=$(grep -oP '(?<=<Version>)[^<]+' src/JellyDrax/JellyDrax.csproj)" >> "$GITHUB_ENV"
-          fi
-
-      - uses: actions/download-artifact@v5
-        with:
-          path: release
-          merge-multiple: true
-
-      - name: Release erstellen
+      - name: Alte Artefakte entfernen
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          tag="v$VERSION"
-          if gh release view "$tag" > /dev/null 2>&1; then
-            echo "Release $tag existiert bereits – nichts zu tun."
-            exit 0
-          fi
-          notes=".github/release-notes/$tag.md"
-          if [[ -f "$notes" ]]; then args=(--notes-file "$notes"); else args=(--generate-notes); fi
-          ls -la release
-          gh release create "$tag" release/* \
-            --target "$GITHUB_SHA" \
-            --title "JellyDrax $VERSION" "${args[@]}"
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts" --paginate --jq '.artifacts[] | select(.expired == false) | .id' |
+            while read -r id; do gh api -X DELETE "repos/$GITHUB_REPOSITORY/actions/artifacts/$id" && echo "gelöscht: $id"; done
