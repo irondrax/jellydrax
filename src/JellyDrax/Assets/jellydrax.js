@@ -77,6 +77,15 @@
     backdrops: false,
     ignoreServerCss: true,
     hidePluginBar: true,
+    hideScrollbar: true,
+    genres: {
+      enabled: true,
+      position: 'after',
+      types: 'both',
+      sort: 'random',
+      count: 24,
+      selected: null
+    },
     hideFirstTitle: true,
     centerLibraries: true,
     customCss: '#indexPage .section3 .cardText { display: none; }\n',
@@ -304,6 +313,7 @@
     if (S.liquid) ensureLiquidFilter();
     r.setAttribute('data-jdx-banner', S.detailBanner || 'color');
     r.classList.toggle('jdx-reduce-motion', !!S.reduceMotion);
+    r.classList.toggle('jdx-noscrollbar', !!S.hideScrollbar);
     r.classList.toggle('jdx-player', !!S.player.theme);
     r.classList.toggle('jdx-islands-on', !!(S.player.theme && S.player.islands));
     r.classList.toggle('jdx-hide-osd-actions', !!S.player.hideTopActions);
@@ -364,6 +374,209 @@
         f.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'pauseVideo', args: [] }), '*');
       } catch (e) { /* ignorieren */ }
     });
+  }
+
+  // ======================================================== Genre-Rubriken
+  // Jedes Genre erscheint nur einmal: Schreibweisen und Sprachen werden zusammengefasst
+  // (z. B. "Comedy" + "Komödie", "Science Fiction" + "Sci-Fi"). Die Reihen nutzen Jellyfins
+  // Karten-Klassen und sehen daher wie die eigenen Rubriken aus.
+
+  var GENRE_CANON = [
+    ['action', 'Action', ['action', 'actionfilm', 'actionandadventure', 'actionadventure']],
+    ['adventure', 'Abenteuer', ['adventure', 'abenteuer', 'abenteuerfilm']],
+    ['animation', 'Animation', ['animation', 'animationsfilm', 'zeichentrick', 'zeichentrickfilm', 'animated', 'trickfilm']],
+    ['anime', 'Anime', ['anime']],
+    ['comedy', 'Komödie', ['comedy', 'komodie', 'komoedie', 'comedies', 'humor', 'humour']],
+    ['crime', 'Krimi', ['crime', 'krimi', 'kriminalfilm', 'kriminal']],
+    ['documentary', 'Dokumentation', ['documentary', 'documentaries', 'dokumentation', 'dokumentarfilm', 'doku', 'dokumentarisch']],
+    ['drama', 'Drama', ['drama', 'dramen']],
+    ['family', 'Familie', ['family', 'familie', 'familienfilm', 'kids', 'kinder', 'kinderfilm', 'children']],
+    ['fantasy', 'Fantasy', ['fantasy', 'fantasyfilm']],
+    ['history', 'Historie', ['history', 'historie', 'historienfilm', 'geschichte', 'historical', 'historisch']],
+    ['horror', 'Horror', ['horror', 'horrorfilm']],
+    ['music', 'Musik', ['music', 'musik', 'musikfilm']],
+    ['musical', 'Musical', ['musical', 'musicals']],
+    ['mystery', 'Mystery', ['mystery', 'mysteryfilm']],
+    ['romance', 'Liebesfilm', ['romance', 'romantik', 'romantisch', 'liebesfilm', 'liebe', 'romanze', 'romantic']],
+    ['scifi', 'Science-Fiction', ['sciencefiction', 'scifi', 'scififantasy', 'scifiandfantasy', 'sciencefictionfantasy', 'sciencefictionandfantasy', 'sf']],
+    ['thriller', 'Thriller', ['thriller', 'suspense', 'spannung']],
+    ['war', 'Kriegsfilm', ['war', 'krieg', 'kriegsfilm', 'warpolitics', 'warandpolitics', 'kriegundpolitik']],
+    ['western', 'Western', ['western']],
+    ['tvmovie', 'TV-Film', ['tvmovie', 'tvfilm', 'fernsehfilm']],
+    ['sport', 'Sport', ['sport', 'sports', 'sportfilm']],
+    ['biography', 'Biografie', ['biography', 'biografie', 'biographie', 'biopic']],
+    ['reality', 'Reality-TV', ['reality', 'realitytv', 'realityshow']],
+    ['soap', 'Seifenoper', ['soap', 'seifenoper', 'soapopera']],
+    ['talk', 'Talkshow', ['talk', 'talkshow']],
+    ['news', 'Nachrichten', ['news', 'nachrichten']],
+    ['short', 'Kurzfilm', ['short', 'kurzfilm']],
+    ['erotic', 'Erotik', ['erotic', 'erotik']]
+  ];
+  var GENRE_PREFERRED = ['action', 'comedy', 'scifi', 'fantasy', 'thriller', 'drama', 'animation', 'adventure', 'horror', 'crime', 'family', 'romance'];
+  var genreAlias = {};
+  GENRE_CANON.forEach(function (g) { g[2].forEach(function (a) { genreAlias[a] = g; }); });
+
+  function genreNorm(name) {
+    return String(name || '').toLowerCase()
+      .replace(/ä/g, 'a').replace(/ö/g, 'o').replace(/ü/g, 'u').replace(/ß/g, 'ss')
+      .normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/&/g, 'and').replace(/[^a-z0-9]/g, '');
+  }
+  // "Action & Adventure" (TMDB-Serien) zählt zu Action, "Sci-Fi & Fantasy" zu Science-Fiction
+  function canonGenre(name) {
+    var n = genreNorm(name);
+    var g = genreAlias[n] || genreAlias[n.replace(/film$/, '')] || genreAlias[n.replace(/s$/, '')];
+    return g ? { key: g[0], label: g[1] } : { key: 'x-' + n, label: String(name).trim() };
+  }
+
+  var GENRES = { list: null, loading: false, key: '' };
+
+  function genreTypes() {
+    var t = S.genres.types;
+    return t === 'movies' ? 'Movie' : t === 'series' ? 'Series' : 'Movie,Series';
+  }
+
+  function loadGenreList() {
+    var a = api(), uid = userId();
+    if (!a || !uid) return Promise.resolve([]);
+    var url = a.getUrl('Genres', { userId: uid, IncludeItemTypes: genreTypes(), Recursive: true, Fields: 'ItemCounts', EnableTotalRecordCount: false, SortBy: 'SortName' });
+    return a.getJSON(url).then(function (r) {
+      var map = {};
+      (r && r.Items || []).forEach(function (g) {
+        var c = canonGenre(g.Name);
+        var count = (g.MovieCount || 0) + (g.SeriesCount || 0) + (g.ChildCount || 0);
+        var e = map[c.key] || (map[c.key] = { key: c.key, label: c.label, ids: [], names: [], count: 0 });
+        e.ids.push(g.Id); e.names.push(g.Name); e.count += count;
+      });
+      return Object.keys(map).map(function (k) { return map[k]; }).sort(function (x, y) {
+        return (y.count - x.count) || (GENRE_PREFERRED.indexOf(x.key) + 1 || 99) - (GENRE_PREFERRED.indexOf(y.key) + 1 || 99) || x.label.localeCompare(y.label, 'de');
+      });
+    });
+  }
+
+  function chosenGenres() {
+    var list = GENRES.list || [];
+    var sel = S.genres.selected;
+    if (Array.isArray(sel)) return sel.map(function (k) { return list.filter(function (g) { return g.key === k; })[0]; }).filter(Boolean);
+    // automatisch: die 6 größten (bei fehlenden Zahlen die bekanntesten)
+    var withCount = list.filter(function (g) { return g.count > 0; });
+    if (withCount.length) return withCount.slice(0, 6);
+    return list.slice().sort(function (x, y) { return (GENRE_PREFERRED.indexOf(x.key) + 1 || 99) - (GENRE_PREFERRED.indexOf(y.key) + 1 || 99); }).slice(0, 6);
+  }
+
+  function genreCard(item) {
+    var img = imageUrl(item, 'Primary', { maxHeight: 480 });
+    var sub = item.ProductionYear ? String(item.ProductionYear) : '';
+    if (item.Type === 'Series' && item.ProductionYear) sub += item.Status === 'Continuing' ? ' – heute' : (item.EndDate ? ' – ' + new Date(item.EndDate).getFullYear() : '');
+    var play = el('button', { type: 'button', class: 'cardOverlayButton cardOverlayButton-hover paper-icon-button-light cardOverlayFab-primary', title: 'Abspielen' }, [el('span', { class: 'material-icons cardOverlayButtonIcon cardOverlayButtonIcon-hover play_arrow', 'aria-hidden': 'true' })]);
+    play.addEventListener('click', function (e) { e.stopPropagation(); playItem(item); });
+    var card = el('div', { class: 'card overflowPortraitCard card-hoverable jdx-gcard', 'data-id': item.Id, title: item.Name }, [
+      el('div', { class: 'cardBox cardBox-bottompadded' }, [
+        el('div', { class: 'cardScalable' }, [
+          el('div', { class: 'cardPadder cardPadder-overflowPortrait' }),
+          el('div', { class: 'cardImageContainer coveredImage cardContent', style: img ? { backgroundImage: 'url("' + img + '")' } : null }),
+          el('div', { class: 'cardOverlayContainer' }, [play])
+        ]),
+        el('div', { class: 'cardText cardTextCentered cardText-first' }, [el('bdi', { text: item.Name })]),
+        el('div', { class: 'cardText cardTextCentered cardText-secondary' }, [el('bdi', { text: sub || ' ' })])
+      ])
+    ]);
+    card.addEventListener('click', function () { showDetails(item); });
+    return card;
+  }
+
+  function fillGenreRow(section, g) {
+    var a = api(), uid = userId();
+    if (!a || !uid || section._loaded) return;
+    section._loaded = true;
+    var q = {
+      GenreIds: g.ids.join('|'), IncludeItemTypes: genreTypes(), Recursive: true, Limit: S.genres.count,
+      Fields: 'PrimaryImageAspectRatio,ProductionYear,EndDate,Status', ImageTypeLimit: 1, EnableImageTypes: 'Primary', EnableUserData: true
+    };
+    if (S.genres.sort === 'latest') { q.SortBy = 'DateCreated'; q.SortOrder = 'Descending'; }
+    else if (S.genres.sort === 'rating') { q.SortBy = 'CommunityRating,SortName'; q.SortOrder = 'Descending'; }
+    else q.SortBy = 'Random';
+    a.getItems(uid, q).then(function (r) {
+      var items = r && r.Items || [];
+      var box = section.querySelector('.itemsContainer');
+      box.textContent = '';
+      if (!items.length) { section.remove(); return; }
+      items.forEach(function (it) { box.appendChild(genreCard(it)); });
+    }).catch(function () { section.remove(); });
+  }
+
+  function genreSection(g) {
+    var serverId = api() && api().serverId && api().serverId();
+    var link = el('a', { class: 'sectionTitleTextButton', href: '#/list?genreId=' + encodeURIComponent(g.ids[0]) + '&serverId=' + encodeURIComponent(serverId || '') }, [
+      el('h2', { class: 'sectionTitle sectionTitle-cards', text: g.label }), el('span', { class: 'material-icons chevron_right', 'aria-hidden': 'true' })]);
+    var scroller = el('div', { class: 'jdx-genre-scroller emby-scroller' }, [el('div', { class: 'itemsContainer scrollSlider focuscontainer-x' }, [el('div', { class: 'jdx-genre-placeholder' })])]);
+    var step = function (dir) { scroller.scrollBy({ left: dir * scroller.clientWidth * 0.85, behavior: 'smooth' }); };
+    var section = el('div', { class: 'verticalSection jdx-genre-section', 'data-genre': g.key }, [
+      el('div', { class: 'sectionTitleContainer sectionTitleContainer-cards padded-left' }, [link,
+        el('div', { class: 'jdx-genre-arrows' }, [
+          el('button', { type: 'button', title: 'Zurück', onclick: function () { step(-1); } }, [icon('chevron_left')]),
+          el('button', { type: 'button', title: 'Weiter', onclick: function () { step(1); } }, [icon('chevron_right')])])]),
+      scroller
+    ]);
+    return section;
+  }
+
+  var genreObserver = null;
+
+  function renderGenres(tab) {
+    var box = document.getElementById('jdx-genres');
+    if (box) box.remove();
+    var chosen = chosenGenres();
+    if (!chosen.length) return;
+    box = el('div', { id: 'jdx-genres', 'data-key': GENRES.key });
+    chosen.forEach(function (g) { box.appendChild(genreSection(g)); });
+    placeGenres(tab, box);
+    // Inhalte erst laden, wenn eine Reihe in die Nähe des sichtbaren Bereichs kommt
+    if (genreObserver) genreObserver.disconnect();
+    genreObserver = window.IntersectionObserver ? new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (!en.isIntersecting) return;
+        var g = chosen.filter(function (x) { return x.key === en.target.getAttribute('data-genre'); })[0];
+        if (g) fillGenreRow(en.target, g);
+        genreObserver.unobserve(en.target);
+      });
+    }, { rootMargin: '600px 0px' }) : null;
+    box.querySelectorAll('.jdx-genre-section').forEach(function (sec) {
+      if (genreObserver) genreObserver.observe(sec);
+      else fillGenreRow(sec, chosen.filter(function (x) { return x.key === sec.getAttribute('data-genre'); })[0]);
+    });
+  }
+
+  function placeGenres(tab, box) {
+    var sections = tab.querySelector('.sections');
+    if (S.genres.position === 'before' && sections) tab.insertBefore(box, sections);
+    else tab.appendChild(box);
+  }
+
+  function refreshGenres(force) {
+    var g = S.genres;
+    var tab = homeTab();
+    var existing = document.getElementById('jdx-genres');
+    if (!g.enabled || !userId()) { if (existing) existing.remove(); return; }
+    if (!tab) return;
+    var key = [userId(), g.types].join('|');
+    if (force || key !== GENRES.key) {
+      if (GENRES.loading) return;
+      GENRES.loading = true;
+      GENRES.key = key;
+      loadGenreList().then(function (list) { GENRES.list = list; }).catch(function () { GENRES.list = []; })
+        .then(function () { GENRES.loading = false; var t = homeTab(); if (t) renderGenres(t); });
+      return;
+    }
+    if (!GENRES.list) return;
+    if (!existing || !tab.contains(existing)) renderGenres(tab);
+    else {
+      // Jellyfin baut seine Rubriken neu auf – Position bei Bedarf korrigieren
+      var sections = tab.querySelector('.sections');
+      var wantBefore = g.position === 'before';
+      if (wantBefore && sections && existing.nextElementSibling !== sections) tab.insertBefore(existing, sections);
+      if (!wantBefore && tab.lastElementChild !== existing) tab.appendChild(existing);
+    }
   }
 
   // ======================================================== Player-Inseln
@@ -1411,6 +1624,10 @@
     save();
     applyAll();
     if (path.indexOf('player.') === 0) scheduleIslands();
+    if (path.indexOf('genres.') === 0) {
+      if (path === 'genres.types') { S.genres.selected = null; refreshGenres(true); }
+      else { var t = homeTab(); var b = document.getElementById('jdx-genres'); if (b) b.remove(); if (S.genres.enabled && t && GENRES.list) renderGenres(t); else refreshGenres(true); }
+    }
     if (path.indexOf('ratings.') === 0) {
       if (MB.el && path !== 'ratings.size' && path !== 'ratings.style') renderSlides();
       document.querySelectorAll('.jdx-detail-ratings').forEach(function (n) { n.remove(); });
@@ -1704,6 +1921,34 @@
       add(row('Rubriken-Reihe zentrieren', 'Die Bibliotheks-Buttons unter der Media Bar mittig ausrichten', toggleCtl('centerLibraries')));
       add(row('Titel der ersten Rubrik ausblenden', 'z. B. „Meine Medien“', toggleCtl('hideFirstTitle')));
       add(row('Media Bar eines Server-Plugins ausblenden', 'Verhindert doppelte Media Bars', toggleCtl('hidePluginBar')));
+      add(row('Scrollleiste ausblenden', 'Scrollen per Mausrad und Touchpad bleibt möglich', toggleCtl('hideScrollbar')));
+      add(el('h3', { text: 'Genre-Rubriken' }));
+      add(row('Genre-Rubriken anzeigen', 'Reihen wie Action, Komödie oder Science-Fiction – jedes Genre nur einmal, auch wenn es in der Mediathek unterschiedlich heißt (z. B. „Comedy“ und „Komödie“)', toggleCtl('genres.enabled')));
+      add(row('Position', null, selectCtl('genres.position', [['after', 'Nach den Jellyfin-Rubriken'], ['before', 'Vor den Jellyfin-Rubriken']])));
+      add(row('Medientypen', null, selectCtl('genres.types', [['both', 'Filme und Serien'], ['movies', 'Nur Filme'], ['series', 'Nur Serien']])));
+      add(row('Reihenfolge der Titel', null, selectCtl('genres.sort', [['random', 'Zufällig'], ['latest', 'Neu hinzugefügt'], ['rating', 'Am besten bewertet']])));
+      add(row('Titel pro Rubrik', null, rangeCtl('genres.count', 8, 50, 1, String)));
+      var gl = GENRES.list;
+      if (!gl) {
+        add(el('div', { class: 'jdx-row' }, [el('label', null, ['Genres', el('small', { text: 'Werden geladen, sobald die Startseite geöffnet war.' })])]));
+      } else {
+        var current = chosenGenres().map(function (g) { return g.key; });
+        var checks = el('div', { class: 'jdx-checks jdx-genre-checks' });
+        gl.forEach(function (g) {
+          var cb = el('input', { type: 'checkbox' });
+          cb.checked = current.indexOf(g.key) >= 0;
+          cb.addEventListener('change', function () {
+            var sel = chosenGenres().map(function (x) { return x.key; }).filter(function (k) { return k !== g.key; });
+            if (cb.checked) sel.push(g.key);
+            S.genres.selected = sel;
+            changed('genres.selected');
+          });
+          var merged = g.names.length > 1 ? ' (' + g.names.join(' + ') + ')' : '';
+          checks.appendChild(el('label', { title: g.names.join(', ') }, [cb, g.label + (g.count ? ' · ' + g.count : '') + merged]));
+        });
+        add(el('div', { class: 'jdx-row jdx-row-col' }, [el('label', null, ['Angezeigte Genres', el('small', { text: 'Reihenfolge wie ausgewählt. Gleiche Genres in verschiedenen Schreibweisen sind zusammengefasst (in Klammern).' })]), checks]));
+        add(el('div', { class: 'jdx-buttons' }, [el('button', { class: 'jdx-b', type: 'button', text: 'Automatisch (die 6 größten)', onclick: function () { S.genres.selected = null; changed('genres.selected'); renderTab(); } })]));
+      }
     } else if (activeTab === 'advanced') {
       if (needsReload) {
         add(el('div', { class: 'jdx-note' }, [el('span', { text: 'Diese Änderung wird nach dem Neuladen wirksam.' }),
@@ -1862,6 +2107,7 @@
     silencePluginBar();
     if (S.liquid) ensureLiquidFilter();
     refreshMediaBar(false);
+    refreshGenres(false);
     ensureDetailRatings();
     if (S.player.theme && S.player.islands && document.querySelector('.videoOsdBottom, .osdHeader')) scheduleIslands();
     if (!updateAsked && FEATURES.updates) { updateAsked = true; hostPost({ jdx: 'update-get' }); }

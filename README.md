@@ -54,18 +54,19 @@ Rechtsklick-Menü der Titelleiste. Alle Änderungen sind sofort sichtbar und wer
   leichter Zoom, Lichtstreifen über das Bild), Anheben, Bild-Zoom,
   Leuchten, 3D-Kippen, Lichtreflex, keine – mit Live-Vorschau. Seitenwechsel-Animation und
   Geschwindigkeit aller Animationen, Schalter „Animationen reduzieren“ (unabhängig von der Windows-Einstellung).
-- **Startseite** – Hintergrundbilder aus der Mediathek (Standard: aus), Banner auf Film-/Serienseiten
+- **Startseite** – Genre-Rubriken (Action, Komödie, Science-Fiction …; gleiche Genres in verschiedenen
+  Schreibweisen/Sprachen werden zusammengefasst), Scrollleiste ausblenden, Hintergrundbilder aus der Mediathek (Standard: aus), Banner auf Film-/Serienseiten
   (Farbverlauf oder Bild), Rubriken-Reihe zentrieren,
   Titel der ersten Rubrik („Meine Medien“) ausblenden, Plugin-Media-Bar ausblenden (inkl. des Platzes, den das Plugin auf der Startseite reserviert, und seiner Trailer).
 - **Erweitert** – Server-CSS ignorieren, eigenes CSS, Einstellungen exportieren/importieren/zurücksetzen.
 
 ## Installation
 
-**Installer:** `JellyDrax-Setup-2.6.0.exe` ausführen. Installiert pro Benutzer (keine Adminrechte) nach
+**Installer:** `JellyDrax-Setup-2.7.0.exe` ausführen. Installiert pro Benutzer (keine Adminrechte) nach
 `%LOCALAPPDATA%\Programs\JellyDrax`, legt einen **Startmenü-Eintrag** an (optional Desktop-Verknüpfung) und
 erscheint unter *Einstellungen → Apps → Installierte Apps*. Eine vorhandene Installation von
 „Jellyfin Desktop“ wird ersetzt – Server, Anmeldung und Fensterposition werden übernommen.
-Stille Installation: `JellyDrax-Setup-2.6.0.exe /S`.
+Stille Installation: `JellyDrax-Setup-2.7.0.exe /S`.
 
 **Ohne Installation:** `JellyDrax.exe` direkt ausführen (kein .NET nötig).
 
@@ -156,7 +157,7 @@ Server, sofern nicht `--enable-vaapi` und ein passender VA-API-Treiber die Hardw
 
 ```
 dotnet publish src/JellyDrax -c Release -o dist
-makensis -DVERSION=2.6.0 installer/JellyDrax.nsi
+makensis -DVERSION=2.7.0 installer/JellyDrax.nsi
 ```
 
 Benötigt das .NET 8 SDK und für den Installer [NSIS](https://nsis.sourceforge.io).
