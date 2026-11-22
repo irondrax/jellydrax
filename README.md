@@ -25,17 +25,17 @@ Entwickelt für **Jellyfin 12.4** (funktioniert auch mit 10.10/10.11).
 Öffnen über das **Paletten-Symbol** in der Kopfleiste (neben der Suche), mit **Strg + ,** oder über das
 Rechtsklick-Menü der Titelleiste. Alle Änderungen sind sofort sichtbar und werden in der App gespeichert.
 
-- **Design** – 17 fertige Themes, darunter **Liquid Glass** und **Liquid Sunset** (klares Glas mit
-  Lichtkanten und Lichtbrechung, schwebende Kopfleiste, Pillen-Buttons, bewegter Farbhintergrund),
-  **Glass** und **Glass Aurora** (halbtransparente Flächen mit Unschärfe über farbigen Lichtflächen), außerdem JellyDrax, Midnight, AMOLED, Kino, Nord, Dracula, Ozean, Smaragd,
-  Sonnenuntergang, Rosé, Royal Gold, Graphit, Jellyfin Klassik), dazu **eigene Farben** für Akzent,
-  zweiten Akzent, Hintergrund, Flächen, Bedienelemente und Text. Hintergrund-Stil (Farbschein, Verlauf, einfarbig),
-  Eckenradius, Schriftart, Glas-Optik (für jedes Theme zuschaltbar). Die Windows-Titelleiste übernimmt die Theme-Farbe.
+- **Design** – 12 fertige Themes: Liquid Glass, Glass Noir, Glass Obsidian, Glass, JellyDrax, Midnight,
+  AMOLED, Kino, Dracula, Ozean, Sonnenuntergang, Jellyfin Klassik; dazu **eigene Farben**, Hintergrund-Stil,
+  **Struktur** (Körnung, Film-Körnung, Punktraster, Linien, Leinen, Vignette – Stärke per Regler),
+  Eckenradius, Schriftart, Glas-Optik. Die Windows-Titelleiste übernimmt die Theme-Farbe.
 - **Media Bar**
-  - 12 Stile: *Kino* (volle Breite, bis unter die Kopfleiste), *Zentriert*, *Karte* (Glas-Infofeld),
-    *Geteilt* (Text links, Bild rechts), *Poster*, *Kompakt*, *Spotlight* (Text rechts), *Karussell*
-    (Nachbarn seitlich sichtbar), *Bühne* (ganzes Bild im Rahmen), *Diagonal*, *Magazin*, *Minimal*
-  - Übergänge: Überblenden, Ken Burns, Schieben, Zoom, Unschärfe, Wischen, Kreis-Enthüllung, 3D-Würfel
+  - 9 Stile: *Kino* (volle Breite, bis unter die Kopfleiste), *Zentriert*, *Geteilt* (Text links, Bild rechts),
+    *Kompakt*, *Spotlight* (Text rechts), *Karussell* (Nachbarn seitlich sichtbar), *Bühne* (ganzes Bild im
+    Rahmen), *Diagonal*, *Minimal*
+  - 13 Übergänge: Überblenden, Abblenden über Schwarz, Schieben, Hochschieben, Zoom, Fokus, Unschärfe,
+    Wischen, Diagonal, Öffnen von der Mitte, Kreis, 3D-Würfel, 3D-Drehung – jeweils kombinierbar mit der
+    **Kamerafahrt (Ken Burns)**, die sich separat ein- und ausschalten lässt
   - Übergangsdauer per Regler (0,3–3 s), Text-Animationen, Indikator (Fortschrittsbalken, Punkte, Vorschaubilder, Zähler), Höhe, Anzeigedauer
   - Inhalt: zufällig, neu hinzugefügt, neueste Veröffentlichungen, am besten bewertet, ungesehen, Favoriten;
     Filme/Serien/Musikalben/Sammlungen; Anzahl
@@ -51,8 +51,7 @@ Rechtsklick-Menü der Titelleiste. Alle Änderungen sind sofort sichtbar und wer
 - **Updates** (Windows) – Suche nach neuen Versionen und Update mit einem Klick (Installer im Hintergrund bzw.
   Austausch der EXE, SHA-256-geprüft), automatische Prüfung beim Start.
 - **Animationen** – Hover über Poster/Medienfelder: *Elegant* (wie ElegantFin: feiner Rahmen wird weiß,
-  leichter Zoom, Lichtstreifen über das Bild), Anheben, Bild-Zoom,
-  Leuchten, 3D-Kippen, Lichtreflex, keine – mit Live-Vorschau. Seitenwechsel-Animation und
+  leichter Zoom, Lichtstreifen über das Bild), Anheben, Bild-Zoom, Lichtreflex, keine – mit Live-Vorschau. Seitenwechsel-Animation und
   Geschwindigkeit aller Animationen, Schalter „Animationen reduzieren“ (unabhängig von der Windows-Einstellung).
 - **Startseite** – Genre-Rubriken (Action, Komödie, Science-Fiction …; gleiche Genres in verschiedenen
   Schreibweisen/Sprachen werden zusammengefasst), Scrollleiste ausblenden, Hintergrundbilder aus der Mediathek (Standard: aus), Banner auf Film-/Serienseiten
@@ -62,11 +61,11 @@ Rechtsklick-Menü der Titelleiste. Alle Änderungen sind sofort sichtbar und wer
 
 ## Installation
 
-**Installer:** `JellyDrax-Setup-2.7.0.exe` ausführen. Installiert pro Benutzer (keine Adminrechte) nach
+**Installer:** `JellyDrax-Setup-2.8.0.exe` ausführen. Installiert pro Benutzer (keine Adminrechte) nach
 `%LOCALAPPDATA%\Programs\JellyDrax`, legt einen **Startmenü-Eintrag** an (optional Desktop-Verknüpfung) und
 erscheint unter *Einstellungen → Apps → Installierte Apps*. Eine vorhandene Installation von
 „Jellyfin Desktop“ wird ersetzt – Server, Anmeldung und Fensterposition werden übernommen.
-Stille Installation: `JellyDrax-Setup-2.7.0.exe /S`.
+Stille Installation: `JellyDrax-Setup-2.8.0.exe /S`.
 
 **Ohne Installation:** `JellyDrax.exe` direkt ausführen (kein .NET nötig).
 
@@ -157,7 +156,7 @@ Server, sofern nicht `--enable-vaapi` und ein passender VA-API-Treiber die Hardw
 
 ```
 dotnet publish src/JellyDrax -c Release -o dist
-makensis -DVERSION=2.7.0 installer/JellyDrax.nsi
+makensis -DVERSION=2.8.0 installer/JellyDrax.nsi
 ```
 
 Benötigt das .NET 8 SDK und für den Installer [NSIS](https://nsis.sourceforge.io).

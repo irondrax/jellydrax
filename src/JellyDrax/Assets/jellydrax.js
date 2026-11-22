@@ -25,21 +25,16 @@
 
   var THEMES = {
     liquid: { name: 'Liquid Glass', glass: true, liquid: true, bg: '#060912', surface: '#121a30', surface2: '#1d2745', text: '#ffffff', muted: '#bcc5df', accent: '#5ac8fa', accent2: '#bf5af2' },
-    liquidsunset: { name: 'Liquid Sunset', glass: true, liquid: true, bg: '#0d0710', surface: '#1f1222', surface2: '#2d1a31', text: '#fff8f5', muted: '#d6b9c2', accent: '#ff9f0a', accent2: '#ff375f' },
+    glassnoir: { name: 'Glass Noir', glass: true, darkGlass: true, bg: '#030305', surface: '#0c0c11', surface2: '#16161d', text: '#f3f3f7', muted: '#9d9daa', accent: '#8e9bff', accent2: '#c58bff' },
+    glassobsidian: { name: 'Glass Obsidian', glass: true, darkGlass: true, bg: '#01050a', surface: '#07111b', surface2: '#0e1c2a', text: '#eaf3fb', muted: '#8fa4b6', accent: '#38bdf8', accent2: '#6366f1' },
     glass: { name: 'Glass', glass: true, bg: '#0a0f1f', surface: '#151b33', surface2: '#212a4a', text: '#f4f6ff', muted: '#aeb6d4', accent: '#7aa2ff', accent2: '#c77dff' },
-    glassaurora: { name: 'Glass Aurora', glass: true, bg: '#05141a', surface: '#0e2430', surface2: '#173543', text: '#effbfa', muted: '#9cc3c6', accent: '#2fe6c8', accent2: '#ff6fd8' },
     jellydrax: { name: 'JellyDrax', bg: '#0d0b14', surface: '#17141f', surface2: '#231e2f', text: '#f2eefa', muted: '#a9a1b8', accent: '#9b5cff', accent2: '#00c2ff' },
     midnight: { name: 'Midnight', bg: '#090d18', surface: '#111827', surface2: '#1b2438', text: '#e8ecf7', muted: '#98a2bd', accent: '#4f8cff', accent2: '#8b5cf6' },
     amoled: { name: 'AMOLED', bg: '#000000', surface: '#0b0b0b', surface2: '#171717', text: '#ffffff', muted: '#9a9a9a', accent: '#f2f2f2', accent2: '#9e9e9e' },
     cinema: { name: 'Kino', bg: '#0b0b0b', surface: '#161616', surface2: '#232323', text: '#f5f5f5', muted: '#a3a3a3', accent: '#e50914', accent2: '#ff5a36' },
-    nord: { name: 'Nord', bg: '#2e3440', surface: '#3b4252', surface2: '#434c5e', text: '#eceff4', muted: '#aeb6c6', accent: '#88c0d0', accent2: '#81a1c1' },
     dracula: { name: 'Dracula', bg: '#1e1f29', surface: '#282a36', surface2: '#343746', text: '#f8f8f2', muted: '#a4a8c6', accent: '#bd93f9', accent2: '#ff79c6' },
     ocean: { name: 'Ozean', bg: '#04131c', surface: '#0a2230', surface2: '#10313f', text: '#e3f4fb', muted: '#8fb3c2', accent: '#00b4d8', accent2: '#48e5c2' },
-    emerald: { name: 'Smaragd', bg: '#07130f', surface: '#0f211a', surface2: '#163027', text: '#e7f6ef', muted: '#93b8a8', accent: '#2ecc71', accent2: '#1abc9c' },
     sunset: { name: 'Sonnenuntergang', bg: '#140c0c', surface: '#221413', surface2: '#311c1a', text: '#fbeee8', muted: '#c4a39a', accent: '#ff7a45', accent2: '#ff3d77' },
-    rose: { name: 'Rosé', bg: '#140b10', surface: '#21121a', surface2: '#2e1925', text: '#fbe9f1', muted: '#c39fb1', accent: '#ff6fa5', accent2: '#c86bff' },
-    royal: { name: 'Royal Gold', bg: '#0e0d0a', surface: '#1a1813', surface2: '#27241b', text: '#f6f1e3', muted: '#b5ab90', accent: '#d4af37', accent2: '#f0d78c' },
-    graphite: { name: 'Graphit', bg: '#161718', surface: '#202123', surface2: '#2b2d30', text: '#ececec', muted: '#a2a4a8', accent: '#a9b8cc', accent2: '#d9e2ef' },
     jellyfin: { name: 'Jellyfin Klassik', bg: '#101010', surface: '#202020', surface2: '#2c2c2c', text: '#ffffff', muted: '#b3b3b3', accent: '#00a4dc', accent2: '#aa5cc3' }
   };
 
@@ -68,6 +63,8 @@
     refraction: true,
     detailBanner: 'color',
     bgStyle: 'glow',
+    texture: 'grain',
+    textureStrength: 35,
     radius: 12,
     font: 'segoe',
     glassHeader: true,
@@ -93,7 +90,8 @@
       enabled: true,
       style: 'cinema',
       height: 'large',
-      animation: 'kenburns',
+      animation: 'fade',
+      kenburns: true,
       text: 'rise',
       indicator: 'bars',
       interval: 9,
@@ -195,7 +193,22 @@
     return merge(DEFAULTS, stored);
   }
 
-  var S = loadSettings();
+  // Entfernte Themes, Stile und Animationen auf ähnliche Varianten umstellen
+  function migrate(st) {
+    var themes = { liquidsunset: 'liquid', glassaurora: 'glass', nord: 'midnight', emerald: 'jellydrax', rose: 'jellydrax', royal: 'cinema', graphite: 'amoled' };
+    if (themes[st.theme]) {
+      st.theme = themes[st.theme];
+      st.glass = !!THEMES[st.theme].glass; st.liquid = !!THEMES[st.theme].liquid;
+    }
+    if (!THEMES[st.theme]) st.theme = 'jellydrax';
+    var styles = { card: 'cinema', poster: 'stage', magazine: 'split' };
+    if (styles[st.mediaBar.style]) st.mediaBar.style = styles[st.mediaBar.style];
+    if (st.mediaBar.animation === 'kenburns') { st.mediaBar.animation = 'fade'; st.mediaBar.kenburns = true; }
+    if (st.hover === 'tilt' || st.hover === 'glow') st.hover = 'elegant';
+    return st;
+  }
+
+  var S = migrate(loadSettings());
   var saveTimer = null;
 
   function save() {
@@ -308,6 +321,9 @@
     r.classList.toggle('jdx-nobackdrop', !S.backdrops);
     r.classList.toggle('jdx-glass', !!S.glassHeader);
     r.classList.toggle('jdx-glassmode', !!(S.glass || S.liquid));
+    r.classList.toggle('jdx-glass-dark', !!(THEMES[S.theme] && THEMES[S.theme].darkGlass));
+    r.setAttribute('data-jdx-texture', S.texture || 'none');
+    r.style.setProperty('--jdx-texture-strength', String((S.textureStrength || 0) / 100));
     r.classList.toggle('jdx-liquid', !!S.liquid);
     r.classList.toggle('jdx-refraction', !!(S.liquid && S.refraction));
     if (S.liquid) ensureLiquidFilter();
@@ -616,8 +632,21 @@
   }
 
   // Fläche des sichtbaren Inhalts (bei Containern: Vereinigung der sichtbaren Kinder)
+  // Fläche des sichtbaren Texts (Jellyfin setzt z. B. vor "Endet um" geschützte Leerzeichen)
+  function textRect(n) {
+    var tn = n.firstChild;
+    if (!tn || tn.nodeType !== 3 || n.childNodes.length !== 1) return null;
+    var t = tn.textContent, a = t.search(/\S/), b = t.length - (t.match(/\s*$/)[0] || '').length;
+    if (a < 0 || (a === 0 && b === t.length)) return null;
+    var range = document.createRange();
+    range.setStart(tn, a); range.setEnd(tn, b);
+    var r = range.getBoundingClientRect();
+    return r.width > 1 ? r : null;
+  }
+
   function contentRect(n) {
-    if (n.tagName === 'BUTTON' || n.tagName === 'A' || !n.children.length) return visibleRect(n);
+    if (n.tagName !== 'BUTTON' && n.tagName !== 'A' && !n.children.length) return textRect(n) || visibleRect(n);
+    if (n.tagName === 'BUTTON' || n.tagName === 'A') return visibleRect(n);
     // Schieberegler als Ganzes – ihre Wert-Blase ("23") und Kapitel-Vorschau schweben darüber
     if (n.classList.contains('sliderContainer')) return visibleRect(n);
     var u = null;
@@ -677,7 +706,7 @@
     while (layer.children.length > runs.length) layer.lastChild.remove();
     while (layer.children.length < runs.length) layer.appendChild(el('div', { class: 'jdx-island' }));
     runs.forEach(function (run, i) {
-      var padX = run.key === 'time' ? 12 : 5, padY = 4;
+      var padX = run.key === 'time' ? 16 : 4, padY = 4;
       var n = layer.children[i];
       n.style.left = Math.round(run.r.left - pr.left - padX) + 'px';
       n.style.top = Math.round(run.top - pr.top - padY) + 'px';
@@ -1100,6 +1129,7 @@
     var m = S.mediaBar, e = MB.el;
     e.setAttribute('data-style', m.style);
     e.setAttribute('data-anim', m.animation);
+    e.setAttribute('data-kenburns', m.kenburns ? 'on' : 'off');
     e.setAttribute('data-text', m.text);
     e.setAttribute('data-ind', m.indicator);
     e.setAttribute('data-height', m.height);
@@ -1164,10 +1194,8 @@
       favBtn
     ]);
 
-    var num = el('div', { class: 'jdx-num' }, [el('b', { text: ('0' + (i + 1)).slice(-2) }), ' / ' + ('0' + MB.items.length).slice(-2)]);
-    var body = el('div', { class: 'jdx-slide-body' }, [num, title, tagline, meta, overview, actions]);
+    var body = el('div', { class: 'jdx-slide-body' }, [title, tagline, meta, overview, actions]);
     var backdrop = imageUrl(item, 'Backdrop', { maxWidth: 1920 });
-    var poster = imageUrl(item, 'Primary', { maxHeight: 900 });
 
     return el('article', { class: 'jdx-slide', 'data-i': i, 'aria-roledescription': 'slide', 'aria-label': item.Name }, [
       el('div', { class: 'jdx-slide-media' }, [
@@ -1175,7 +1203,6 @@
         el('div', { class: 'jdx-slide-video' })
       ]),
       el('div', { class: 'jdx-slide-shade' }),
-      el('div', { class: 'jdx-slide-poster', 'data-src': poster || backdrop }),
       el('div', { class: 'jdx-slide-frame', 'data-src': backdrop }),
       body
     ]);
@@ -1392,7 +1419,7 @@
 
   function maybeStartTrailer(item, slide) {
     var mode = S.mediaBar.trailers;
-    if (mode === 'off' || !item || S.mediaBar.style === 'poster') return;
+    if (mode === 'off' || !item || S.mediaBar.style === 'stage') return;
     MB.muted = !S.mediaBar.trailerSound;
     updateMuteIcon();
     MB.trailerTimer = setTimeout(function () {
@@ -1576,21 +1603,20 @@
   var MB_STYLES = [
     ['cinema', 'Kino', 'Volle Breite, Text links, reicht bis unter die Kopfleiste'],
     ['center', 'Zentriert', 'Logo und Text mittig mit Vignette'],
-    ['card', 'Karte', 'Abgerundete Karte mit Glas-Infofeld'],
     ['split', 'Geteilt', 'Text auf Farbfläche links, Bild rechts'],
-    ['poster', 'Poster', 'Poster vor unscharfem Hintergrund'],
     ['compact', 'Kompakt', 'Flaches Banner ohne Beschreibung'],
     ['spotlight', 'Spotlight', 'Volle Breite, Text rechts'],
     ['carousel', 'Karussell', 'Aktiver Titel mittig, Nachbarn seitlich sichtbar'],
     ['stage', 'Bühne', 'Bild ungeschnitten im Rahmen vor unscharfem Hintergrund'],
     ['diagonal', 'Diagonal', 'Farbfläche mit schrägem Bildanschnitt'],
-    ['magazine', 'Magazin', 'Große Nummer, Text links, Bild als Karte rechts'],
     ['minimal', 'Minimal', 'Nur Bild, Titel und Buttons – mittig unten']
   ];
 
   var MB_ANIMS = [
-    ['fade', 'Überblenden'], ['kenburns', 'Ken Burns (Kamerafahrt)'], ['slide', 'Schieben'], ['zoom', 'Zoom'],
-    ['blur', 'Unschärfe'], ['wipe', 'Wischen'], ['circle', 'Kreis-Enthüllung'], ['cube', '3D-Würfel']
+    ['fade', 'Überblenden'], ['dip', 'Abblenden über Schwarz'], ['slide', 'Schieben (seitlich)'], ['rise', 'Hochschieben'],
+    ['zoom', 'Zoom'], ['focus', 'Fokus (Unschärfe + Zoom)'], ['blur', 'Unschärfe'], ['wipe', 'Wischen'],
+    ['diagonal', 'Diagonal wischen'], ['split', 'Öffnen von der Mitte'], ['circle', 'Kreis-Enthüllung'],
+    ['cube', '3D-Würfel'], ['flip', '3D-Drehung']
   ];
   var TEXT_ANIMS = [['rise', 'Von unten einblenden'], ['fade', 'Einblenden'], ['slide', 'Von links hereingleiten'], ['scale', 'Heranzoomen'], ['blur', 'Aus Unschärfe'], ['none', 'Keine']];
   var INDICATORS = [['bars', 'Fortschrittsbalken'], ['dots', 'Punkte'], ['thumbs', 'Vorschaubilder'], ['counter', 'Zähler'], ['none', 'Keine']];
@@ -1601,8 +1627,6 @@
     ['elegant', 'Elegant', 'Leicht vergrößern mit hellem Rahmen (wie ElegantFin)'],
     ['lift', 'Anheben', 'Karte schwebt nach oben'],
     ['zoom', 'Bild-Zoom', 'Bild zoomt im Rahmen'],
-    ['glow', 'Leuchten', 'Rahmen und Schein in Akzentfarbe'],
-    ['tilt', '3D-Kippen', 'Karte kippt räumlich nach hinten'],
     ['shine', 'Lichtreflex', 'Glanzstreifen läuft über das Bild'],
     ['none', 'Keine', 'Keine Hover-Animation']
   ];
@@ -1839,6 +1863,8 @@
       add(colorGrid());
       add(el('h3', { text: 'Darstellung' }));
       add(row('Hintergrund', 'Keine Bilder aus der Mediathek – nur Farbe', selectCtl('bgStyle', BG_STYLES)));
+      add(row('Struktur', 'Feine Oberfläche für den Hintergrund – sehr dezent', selectCtl('texture', [['none', 'Keine (glatt)'], ['grain', 'Körnung (fein)'], ['film', 'Körnung (Film)'], ['dots', 'Punktraster'], ['lines', 'Feine Linien'], ['canvas', 'Leinen'], ['vignette', 'Vignette (Ränder dunkler)']])));
+      add(row('Stärke der Struktur', null, rangeCtl('textureStrength', 5, 100, 5, function (v) { return v + ' %'; })));
       add(row('Eckenradius', 'Karten, Schaltflächen und Dialoge', rangeCtl('radius', 0, 24, 1, px)));
       add(row('Schriftart', null, selectCtl('font', FONT_OPTS)));
       add(row('Glas-Optik', 'Kopfleiste, Menüs, Dialoge, Rubriken und Karten halbtransparent mit Unschärfe – bei den Glass-Themes automatisch an', toggleCtl('glass')));
@@ -1852,6 +1878,7 @@
       add(row('Indikator', null, selectCtl('mediaBar.indicator', INDICATORS)));
       add(el('h3', { text: 'Animation' }));
       add(row('Übergang', 'Wie die Bilder wechseln', selectCtl('mediaBar.animation', MB_ANIMS)));
+      add(row('Kamerafahrt (Ken Burns)', 'Langsamer Zoom und Schwenk über das Bild – lässt sich mit jedem Übergang kombinieren', toggleCtl('mediaBar.kenburns')));
       add(row('Übergangsdauer', 'Wie lange ein Wechsel dauert (größer = langsamer)', rangeCtl('mediaBar.transition', 0.3, 3, 0.1, function (v) { return v.toFixed(1) + ' s'; })));
       add(row('Text-Animation', 'Wie Titel, Infos und Buttons erscheinen', selectCtl('mediaBar.text', TEXT_ANIMS)));
       add(row('Anzeigedauer', 'Pro Titel', rangeCtl('mediaBar.interval', 4, 20, 1, sec)));
@@ -1978,7 +2005,7 @@
         el('button', { class: 'jdx-b', type: 'button', text: 'Importieren', onclick: function () {
           var raw = prompt('JellyDrax-Einstellungen (JSON) einfügen:');
           if (!raw) return;
-          try { S = merge(DEFAULTS, JSON.parse(raw)); changed('import'); refreshMediaBar(true); renderTab(); } catch (err) { alert('Ungültige Einstellungen: ' + err.message); }
+          try { S = migrate(merge(DEFAULTS, JSON.parse(raw))); changed('import'); refreshMediaBar(true); renderTab(); } catch (err) { alert('Ungültige Einstellungen: ' + err.message); }
         } }),
         el('button', { class: 'jdx-b danger', type: 'button', text: 'Alles zurücksetzen', onclick: function () {
           if (!confirm('Alle JellyDrax-Einstellungen auf Standard zurücksetzen?')) return;
