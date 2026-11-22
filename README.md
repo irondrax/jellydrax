@@ -84,6 +84,14 @@ Solange das Repository privat ist, braucht JellyDrax dafür einen GitHub-Token m
 („Fine-grained token“, Berechtigung *Contents: Read-only* für dieses Repository); er wird mit dem
 Windows-Datenschutz (DPAPI) verschlüsselt gespeichert. Bei einem öffentlichen Repository ist kein Token nötig.
 
+## Fenster (Windows)
+
+Die Titelleiste ist standardmäßig ausgeblendet. Minimieren, Maximieren und Schließen sitzen rechts in der
+Kopfleiste (im Player als eigene Insel). Verschieben über die freie Fläche der Kopfleiste, Doppelklick
+maximiert, Rechtsklick öffnet das Fenstermenü (auch Alt+Leertaste). Schatten, abgerundete Ecken,
+Größenänderung und Andocken bleiben erhalten. Zurück zur klassischen Titelleiste:
+*Einstellungen → Erweitert → Titelleiste ausblenden* oder Fenstermenü → „Titelleiste ein-/ausblenden“.
+
 ## Tastenkürzel
 
 Strg+, Design & Media Bar · F11 / Alt+Enter Vollbild · F5 neu laden · Strg+F5 ohne Cache ·
