@@ -1,5 +1,5 @@
 ; Installer für JellyDrax
-; Bauen:  makensis -DVERSION=2.4.0 installer/JellyDrax.nsi
+; Bauen:  makensis -DVERSION=2.5.0 installer/JellyDrax.nsi
 ; Erwartet die veröffentlichte EXE unter dist\JellyDrax.exe
 
 Unicode true
@@ -7,7 +7,7 @@ SetCompressor /SOLID lzma
 RequestExecutionLevel user          ; Installation pro Benutzer, keine Administratorrechte nötig
 
 !ifndef VERSION
-  !define VERSION "2.4.0"
+  !define VERSION "2.5.0"
 !endif
 !define APPNAME      "JellyDrax"
 !define EXENAME      "JellyDrax.exe"
@@ -30,6 +30,7 @@ VIAddVersionKey /LANG=1031 "LegalCopyright" ""
 
 !include "MUI2.nsh"
 !include "LogicLib.nsh"
+!include "FileFunc.nsh"
 
 !define MUI_ICON   "..\src\JellyDrax\Assets\app.ico"
 !define MUI_UNICON "..\src\JellyDrax\Assets\app.ico"
@@ -56,11 +57,21 @@ Section "${APPNAME} (erforderlich)" SecMain
   SetOutPath "$INSTDIR"
 
   ; Läuft die App noch? Dann lässt sich die EXE nicht ersetzen.
+  ; Beim stillen Update aus der App heraus (/S /UPDATE) bis zu 20 s warten, bis sie beendet ist.
+  StrCpy $R9 0
   retry:
     ClearErrors
     ${If} ${FileExists} "$INSTDIR\${EXENAME}"
       Delete "$INSTDIR\${EXENAME}"
       ${If} ${Errors}
+        ${If} ${Silent}
+          IntOp $R9 $R9 + 1
+          ${If} $R9 < 40
+            Sleep 500
+            Goto retry
+          ${EndIf}
+          Abort
+        ${EndIf}
         MessageBox MB_RETRYCANCEL|MB_ICONEXCLAMATION \
           "${APPNAME} läuft noch. Bitte das Programm schließen und auf $\"Wiederholen$\" klicken." \
           IDRETRY retry
@@ -110,6 +121,14 @@ SectionEnd
 
 ; Nach der Installation prüfen, ob die WebView2 Runtime vorhanden ist (in Windows 11 Standard)
 Function .onInstSuccess
+  ; Update aus der App heraus: JellyDrax danach wieder starten
+  ${GetParameters} $R0
+  ClearErrors
+  ${GetOptions} $R0 "/UPDATE" $R1
+  ${IfNot} ${Errors}
+    Exec '"$INSTDIR\${EXENAME}"'
+  ${EndIf}
+
   ReadRegStr $0 HKLM "SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\${WEBVIEW2GUID}" "pv"
   ${If} $0 == ""
   ${OrIf} $0 == "0.0.0.0"

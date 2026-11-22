@@ -16,6 +16,8 @@
   var VERSION = window.__JDX_VERSION__ || 'dev';
   // Verbindung zur Desktop-App: WebView2 unter Windows, Electron-Preload (window.jdxHost) unter Linux
   var HOST = (window.chrome && window.chrome.webview) || window.jdxHost || null;
+  // Fähigkeiten der Desktop-App (z. B. Updates nur unter Windows)
+  var FEATURES = window.__JDX_FEATURES__ || {};
   var CSS = window.__JDX_CSS__ || '';
   var STORAGE_KEY = 'jellydrax-settings';
 
@@ -98,6 +100,10 @@
       transition: 1.2
     },
     reduceMotion: false,
+    player: {
+      theme: true,
+      islands: true
+    },
     ratings: {
       imdb: true,
       rt: true,
@@ -297,6 +303,8 @@
     if (S.liquid) ensureLiquidFilter();
     r.setAttribute('data-jdx-banner', S.detailBanner || 'color');
     r.classList.toggle('jdx-reduce-motion', !!S.reduceMotion);
+    r.classList.toggle('jdx-player', !!S.player.theme);
+    r.classList.toggle('jdx-islands-on', !!(S.player.theme && S.player.islands));
     r.classList.toggle('jdx-own-ratings', !!(S.ratings.onDetails && S.ratings.hideJellyfinRatings));
     r.style.setProperty('--jdx-rating-scale', String(S.ratings.size || 1));
     r.setAttribute('data-jdx-rating-style', S.ratings.style || 'badges');
@@ -356,6 +364,223 @@
     });
   }
 
+  // ======================================================== Player-Inseln
+  // Zusammengehörende Buttons bekommen eine gemeinsame Glasfläche. Die Buttons selbst bleiben,
+  // wo Jellyfin sie hinsetzt (Plugins fügen ihre Buttons relativ zu diesen ein); die Flächen
+  // liegen in einer eigenen Ebene dahinter. Unbekannte Buttons (z. B. von Plugins) bilden eine eigene Insel.
+
+  var ISLAND_SETS = [
+    {
+      container: '.videoOsdBottom .buttons',
+      groups: [
+        ['transport', function (c) { return !!c.querySelector('.btnPause, .btnRewind, .btnFastForward'); }],
+        ['time', '.osdTimeText'],
+        ['media', '.btnUserRating, .btnSubtitles, .btnAudio'],
+        ['volume', '.volumeButtons'],
+        ['view', '.btnVideoOsdSettings, .btnAirPlay, .btnPip, .btnFullscreen']
+      ]
+    },
+    {
+      container: '.osdHeader .videoOsd-appBar',
+      groups: [
+        ['nav', function (c) { return c.matches('.MuiIconButton-root, .MuiTypography-root, h1, h2, h3, h4, h5, h6, p, span'); }],
+        ['actions', function (c) { return !!c.querySelector('button, a'); }]
+      ]
+    },
+    { container: '.osdHeader .headerTop', groups: [['left', '.headerLeft'], ['right', '.headerRight']] }
+  ];
+
+  var islandWatch = typeof WeakMap === 'function' ? new WeakMap() : null;
+  var islandFrame = 0;
+
+  function visibleRect(n) {
+    if (!n.getClientRects().length) return null;
+    var r = n.getBoundingClientRect();
+    return r.width > 1 && r.height > 1 ? r : null;
+  }
+
+  // Fläche des sichtbaren Inhalts (bei Containern: Vereinigung der sichtbaren Kinder)
+  function contentRect(n) {
+    if (n.tagName === 'BUTTON' || n.tagName === 'A' || !n.children.length) return visibleRect(n);
+    var u = null;
+    Array.prototype.forEach.call(n.children, function (c) {
+      var r = contentRect(c);
+      if (!r) return;
+      u = u ? { left: Math.min(u.left, r.left), top: Math.min(u.top, r.top), right: Math.max(u.right, r.right), bottom: Math.max(u.bottom, r.bottom) } : { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+    });
+    return u;
+  }
+
+  function islandKey(set, c) {
+    for (var i = 0; i < set.groups.length; i++) {
+      var g = set.groups[i], m = g[1];
+      if (typeof m === 'string' ? c.matches(m) : m(c)) return g[0];
+    }
+    return 'extra';
+  }
+
+  function layoutIslands(set, box) {
+    var parent = box.parentNode;
+    if (!parent) return;
+    var layer = null;
+    Array.prototype.some.call(parent.children, function (c) { if (c.classList.contains('jdx-islands')) { layer = c; return true; } return false; });
+    if (!layer) {
+      layer = el('div', { class: 'jdx-islands', 'aria-hidden': 'true' });
+      parent.insertBefore(layer, box);
+    }
+    if (getComputedStyle(parent).position === 'static') parent.style.position = 'relative';
+
+    var runs = [], last = null;
+    Array.prototype.forEach.call(box.children, function (c) {
+      var r = contentRect(c);
+      if (!r) { c.classList.remove('jdx-island-start'); return; }
+      var key = islandKey(set, c);
+      if (last && last.key === key) {
+        last.r = { left: Math.min(last.r.left, r.left), top: Math.min(last.r.top, r.top), right: Math.max(last.r.right, r.right), bottom: Math.max(last.r.bottom, r.bottom) };
+        c.classList.remove('jdx-island-start');
+      } else {
+        // Abstand zwischen den Inseln (erste Insel ohne)
+        c.classList.toggle('jdx-island-start', runs.length > 0);
+        last = { key: key, r: { left: r.left, top: r.top, right: r.right, bottom: r.bottom } };
+        runs.push(last);
+      }
+    });
+
+    // Inseln einer Zeile bekommen dieselbe Höhe
+    runs.forEach(function (a) {
+      var cy = (a.r.top + a.r.bottom) / 2;
+      runs.forEach(function (b) {
+        if (Math.abs((b.r.top + b.r.bottom) / 2 - cy) < 24) { a.top = Math.min(a.top || a.r.top, b.r.top); a.bottom = Math.max(a.bottom || a.r.bottom, b.r.bottom); }
+      });
+    });
+
+    var pr = parent.getBoundingClientRect();
+    while (layer.children.length > runs.length) layer.lastChild.remove();
+    while (layer.children.length < runs.length) layer.appendChild(el('div', { class: 'jdx-island' }));
+    runs.forEach(function (run, i) {
+      var padX = run.key === 'time' ? 12 : 5, padY = 4;
+      var n = layer.children[i];
+      n.style.left = Math.round(run.r.left - pr.left - padX) + 'px';
+      n.style.top = Math.round(run.top - pr.top - padY) + 'px';
+      n.style.width = Math.round(run.r.right - run.r.left + padX * 2) + 'px';
+      n.style.height = Math.round(run.bottom - run.top + padY * 2) + 'px';
+    });
+  }
+
+  function updateIslands() {
+    islandFrame = 0;
+    var on = S.player.theme && S.player.islands;
+    if (!on) {
+      document.querySelectorAll('.jdx-islands').forEach(function (n) { n.remove(); });
+      document.querySelectorAll('.jdx-island-start').forEach(function (n) { n.classList.remove('jdx-island-start'); });
+      return;
+    }
+    ISLAND_SETS.forEach(function (set) {
+      document.querySelectorAll(set.container).forEach(function (box) {
+        if (!visibleRect(box)) return;
+        layoutIslands(set, box);
+        // bei Änderungen (Buttons ein-/ausgeblendet, Größe) neu berechnen
+        if (islandWatch && !islandWatch.has(box)) {
+          var mo = new MutationObserver(scheduleIslands);
+          mo.observe(box, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class', 'style', 'hidden'] });
+          var ro = window.ResizeObserver ? new ResizeObserver(scheduleIslands) : null;
+          if (ro) ro.observe(box);
+          islandWatch.set(box, true);
+        }
+      });
+    });
+  }
+
+  function scheduleIslands() { if (!islandFrame) islandFrame = requestAnimationFrame(updateIslands); }
+
+  // ======================================================== Updates (Windows-App)
+
+  var UPD = { state: 'idle' };
+
+  function hostPost(msg) { try { if (HOST) HOST.postMessage(msg); } catch (e) { /* ignorieren */ } }
+
+  function onUpdateMessage(m) {
+    UPD = m;
+    var btn = document.querySelector('.jdx-toolbarBtn, .jdx-headerBtn');
+    document.querySelectorAll('.jdx-toolbarBtn, .jdx-headerBtn').forEach(function (b) { b.classList.toggle('jdx-has-update', m.state === 'available'); });
+    if (m.state === 'available') showUpdateToast();
+    else { var t = document.getElementById('jdx-update-toast'); if (t && m.state !== 'downloading' && m.state !== 'installing') t.remove(); }
+    if (activeTab === 'updates' && document.getElementById('jdx-settings')) renderTab();
+    return btn;
+  }
+
+  function showUpdateToast() {
+    if (document.getElementById('jdx-update-toast') || document.getElementById('jdx-settings')) return;
+    var key = 'jdx-update-later-' + UPD.latest;
+    try { if (sessionStorage.getItem(key)) return; } catch (e) { /* ignorieren */ }
+    var t = el('div', { id: 'jdx-update-toast', role: 'status' }, [
+      el('div', null, [el('b', { text: 'JellyDrax ' + UPD.latest + ' ist verfügbar' }), el('small', { text: 'Installiert: ' + (UPD.current || VERSION) })]),
+      el('button', { type: 'button', class: 'primary', text: 'Aktualisieren', onclick: function () { t.remove(); openSettings('updates'); } }),
+      el('button', { type: 'button', text: 'Später', onclick: function () { try { sessionStorage.setItem(key, '1'); } catch (e) { /* ignorieren */ } t.remove(); } })
+    ]);
+    document.body.appendChild(t);
+  }
+
+  function checkUpdates() { UPD = Object.assign({}, UPD, { state: 'checking' }); if (activeTab === 'updates') renderTab(); hostPost({ jdx: 'update-check' }); }
+
+  // Release-Notizen (Markdown) einfach lesbar machen
+  function plainNotes(md) {
+    return String(md || '').split(/\r?\n/).map(function (l) {
+      if (/^\s*\|?\s*-{3,}/.test(l)) return null;
+      l = l.replace(/^#{1,6}\s*/, '').replace(/\*\*([^*]+)\*\*/g, '$1').replace(/`([^`]+)`/g, '$1').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+      if (/^\s*\|/.test(l)) l = l.replace(/^\s*\|\s*|\s*\|\s*$/g, '').split(/\s*\|\s*/).join(' · ');
+      return l.replace(/^\s*[-*]\s+/, '• ');
+    }).filter(function (l) { return l !== null; }).join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  }
+
+  function renderUpdatesTab(add) {
+    var u = UPD;
+    add(row('Installierte Version', null, el('strong', { text: u.current || VERSION })));
+    var status = {
+      idle: 'Noch nicht geprüft.',
+      checking: 'Suche nach Updates …',
+      none: '✓ JellyDrax ist auf dem neuesten Stand' + (u.latest ? ' (' + u.latest + ').' : '.'),
+      available: 'Version ' + u.latest + ' ist verfügbar.',
+      downloading: 'Lade Version ' + u.latest + ' herunter … ' + Math.round(u.percent || 0) + ' %',
+      installing: 'Installiere Version ' + u.latest + ' – JellyDrax startet gleich neu …',
+      error: '✗ ' + (u.error || 'Unbekannter Fehler')
+    }[u.state] || '';
+    var busy = u.state === 'checking' || u.state === 'downloading' || u.state === 'installing';
+    var checkBtn = el('button', { class: 'jdx-b', type: 'button', text: 'Nach Updates suchen', onclick: checkUpdates });
+    if (busy) checkBtn.disabled = true;
+    add(el('div', { class: 'jdx-row' }, [el('label', null, ['Status', el('small', { text: status })]), checkBtn]));
+
+    if (u.state === 'available' || u.state === 'downloading' || u.state === 'installing') {
+      var card = el('div', { class: 'jdx-update-card' }, [el('h4', { text: 'JellyDrax ' + u.latest })]);
+      if (u.notes) card.appendChild(el('div', { class: 'jdx-update-notes', text: plainNotes(u.notes) }));
+      if (u.state === 'downloading') {
+        var bar = el('i'); bar.style.transform = 'scaleX(' + Math.min(1, (u.percent || 0) / 100) + ')';
+        card.appendChild(el('div', { class: 'jdx-progress' }, [bar]));
+      }
+      var btns = el('div', { class: 'jdx-buttons' });
+      var go = el('button', { class: 'jdx-b primary', type: 'button', text: u.mode === 'portable' ? 'Jetzt aktualisieren (EXE ersetzen)' : 'Jetzt aktualisieren', onclick: function () { hostPost({ jdx: 'update-install' }); } });
+      if (u.state !== 'available') go.disabled = true;
+      btns.appendChild(go);
+      if (u.url) btns.appendChild(el('button', { class: 'jdx-b', type: 'button', text: 'Auf GitHub ansehen', onclick: function () { window.open(u.url, '_blank'); } }));
+      card.appendChild(btns);
+      card.appendChild(el('small', { text: 'Die Datei wird von GitHub geladen, per SHA-256 geprüft und installiert. Einstellungen und Anmeldung bleiben erhalten.' }));
+      add(card);
+    }
+
+    add(el('h3', { text: 'Einstellungen' }));
+    var auto = el('input', { type: 'checkbox' });
+    auto.checked = u.auto !== false;
+    auto.addEventListener('change', function () { hostPost({ jdx: 'update-settings', auto: auto.checked }); });
+    add(row('Beim Start automatisch prüfen', 'Höchstens alle 12 Stunden; bei einer neuen Version erscheint ein Hinweis', el('span', { class: 'jdx-switch' }, [auto, el('span')])));
+    var tok = el('input', { type: 'password', placeholder: u.hasToken ? '•••••••• (gespeichert)' : 'github_pat_…', autocomplete: 'off', spellcheck: 'false' });
+    add(el('div', { class: 'jdx-row' }, [
+      el('label', null, ['GitHub-Token', el('small', { text: 'Nur nötig, solange das Repository privat ist: ein „Fine-grained token“ mit Lesezugriff auf „Contents“. Wird verschlüsselt gespeichert (Windows-Datenschutz).' })]),
+      el('div', { class: 'jdx-range' }, [tok,
+        el('button', { class: 'jdx-b', type: 'button', text: 'Speichern', onclick: function () { hostPost({ jdx: 'update-settings', token: tok.value.trim() }); tok.value = ''; } }),
+        u.hasToken ? el('button', { class: 'jdx-b danger', type: 'button', text: 'Entfernen', onclick: function () { hostPost({ jdx: 'update-settings', token: '' }); } }) : null])
+    ]));
+  }
+
   // ======================================================== Bewertungen
   // IMDb / Rotten Tomatoes / Metacritic über die OMDb-API (eigener, kostenloser Schlüssel nötig).
   // Ohne Schlüssel: Kritiker-Wertung (Rotten Tomatoes) und Community-Wertung aus Jellyfin.
@@ -364,6 +589,7 @@
   if (HOST) {
     HOST.addEventListener('message', function (ev) {
       var m = ev.data;
+      if (m && m.jdx === 'update') { onUpdateMessage(m); return; }
       if (!m || m.jdx !== 'fetchResult' || !fetchWaiters[m.id]) return;
       var w = fetchWaiters[m.id]; delete fetchWaiters[m.id];
       m.ok ? w.resolve(m.body) : w.reject(new Error(m.error || ('HTTP ' + m.status)));
@@ -1014,10 +1240,12 @@
     { id: 'design', label: 'Design', icon: 'palette' },
     { id: 'mediabar', label: 'Media Bar', icon: 'view_carousel' },
     { id: 'ratings', label: 'Bewertungen', icon: 'star' },
+    { id: 'player', label: 'Player', icon: 'smart_display' },
     { id: 'anim', label: 'Animationen', icon: 'animation' },
     { id: 'home', label: 'Startseite', icon: 'home' },
     { id: 'advanced', label: 'Erweitert', icon: 'tune' }
   ];
+  if (FEATURES.updates) TABS.push({ id: 'updates', label: 'Updates', icon: 'system_update' });
 
   var MB_STYLES = [
     ['cinema', 'Kino', 'Volle Breite, Text links, reicht bis unter die Kopfleiste'],
@@ -1069,6 +1297,7 @@
   function changed(path) {
     save();
     applyAll();
+    if (path.indexOf('player.') === 0) scheduleIslands();
     if (path.indexOf('ratings.') === 0) {
       if (MB.el && path !== 'ratings.size' && path !== 'ratings.style') renderSlides();
       document.querySelectorAll('.jdx-detail-ratings').forEach(function (n) { n.remove(); });
@@ -1321,6 +1550,11 @@
       add(row('Trailer im Hintergrund', 'Startet kurz nach dem Wechsel, ersetzt das Bild', selectCtl('mediaBar.trailers', TRAILERS)));
       add(row('Trailer mit Ton starten', null, toggleCtl('mediaBar.trailerSound')));
       add(el('div', { class: 'jdx-buttons' }, [el('button', { class: 'jdx-b', type: 'button', text: 'Neue Titel laden', onclick: function () { refreshMediaBar(true); } })]));
+    } else if (activeTab === 'player') {
+      add(row('Player im JellyDrax-Design', 'Farben, Fortschrittsbalken und Buttons des Videoplayers passend zum Theme. Funktionen und Player-Plugins bleiben unverändert.', toggleCtl('player.theme')));
+      add(row('Buttons als Inseln gruppieren', 'Zusammengehörende Buttons erhalten eine gemeinsame Glasfläche: Wiedergabe · Endzeit · Favorit/Untertitel/Audio · Lautstärke · Einstellungen/Vollbild (oben: Zurück/Titel · SyncPlay/Cast). Buttons von Plugins bekommen eine eigene Insel.', toggleCtl('player.islands')));
+    } else if (activeTab === 'updates') {
+      renderUpdatesTab(add);
     } else if (activeTab === 'ratings') {
       add(el('h3', { text: 'Quellen' }));
       add(row('IMDb', 'Benötigt einen OMDb-Schlüssel (unten) – ohne Schlüssel wird ersatzweise die Community-Bewertung (★) gezeigt', toggleCtl('ratings.imdb')));
@@ -1508,7 +1742,10 @@
     if (S.liquid) ensureLiquidFilter();
     refreshMediaBar(false);
     ensureDetailRatings();
+    if (S.player.theme && S.player.islands && document.querySelector('.videoOsdBottom, .osdHeader')) scheduleIslands();
+    if (!updateAsked && FEATURES.updates) { updateAsked = true; hostPost({ jdx: 'update-get' }); }
   }
+  var updateAsked = false;
 
   window.JellyDrax = {
     version: VERSION,
@@ -1517,7 +1754,8 @@
     toggleSettings: function () { document.getElementById('jdx-settings') ? closeSettings() : openSettings(); },
     get settings() { return clone(S); },
     themes: THEMES,
-    refresh: function () { refreshMediaBar(true); }
+    refresh: function () { refreshMediaBar(true); },
+    checkUpdates: checkUpdates
   };
 
   // Farben so früh wie möglich setzen (verhindert Aufblitzen des Standard-Themes)

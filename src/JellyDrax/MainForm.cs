@@ -35,6 +35,14 @@ public sealed class MainForm : Form
     private readonly string _clientCss = LoadResource("jellydrax.css");
     private readonly HttpClient _http;
 
+    // Updates
+    private readonly Updater _updater = new();
+    private UpdateInfo? _latest;
+    private string _updState = "idle";
+    private string? _updError;
+    private double _updPercent;
+    private bool _updBusy;
+
     // Vollbild
     private bool _fullscreen;          // Fenster ist aktuell im Vollbild
     private bool _userFullscreen;      // per F11 angefordert (bleibt nach Video-Vollbild erhalten)
@@ -130,6 +138,12 @@ public sealed class MainForm : Form
         await RegisterClientScriptAsync();
 
         _web.ZoomFactor = Math.Clamp(_settings.Zoom, 0.25, 5.0);
+
+        Updater.CleanupAfterUpdate();
+        if (_settings.AutoUpdateCheck && (_settings.LastUpdateCheck is not DateTime last || DateTime.UtcNow - last > TimeSpan.FromHours(12)))
+        {
+            _ = Task.Delay(TimeSpan.FromSeconds(8)).ContinueWith(_ => BeginInvoke(new Action(() => _ = CheckUpdatesAsync(silent: true))));
+        }
 
         if (!string.IsNullOrWhiteSpace(_startServer))
             ShowConnectPage(_startServer, autoConnect: true);
@@ -255,6 +269,7 @@ public sealed class MainForm : Form
         var version = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "?";
         var bootstrap = new StringBuilder()
             .Append("window.__JDX_VERSION__=").Append(JsonSerializer.Serialize(version)).Append(';')
+            .Append("window.__JDX_FEATURES__={\"updates\":true};")
             .Append("window.__JDX_CSS__=").Append(JsonSerializer.Serialize(_clientCss)).Append(';')
             .Append("window.__JDX_SETTINGS__=").Append(_settings.Client?.ToJsonString() ?? "null").Append(";\n")
             .Append(_clientJs)
@@ -308,6 +323,143 @@ public sealed class MainForm : Form
         _settings.Client = obj;
         _settings.Save();
         await RegisterClientScriptAsync(); // beim nächsten Laden aktuelle Werte
+    }
+
+    // ----------------------------------------------------------------- Updates
+
+    private void SetUpdState(string state, double percent = 0)
+    {
+        _updState = state;
+        _updPercent = percent;
+        PostUpdateStatus();
+    }
+
+    private void PostUpdateStatus()
+    {
+        if (_core == null || _onLocalPage) return;
+        _core.PostWebMessageAsJson(JsonSerializer.Serialize(new
+        {
+            jdx = "update",
+            state = _updState,
+            current = Updater.CurrentVersion.ToString(3),
+            latest = _latest?.Latest.ToString(3),
+            notes = _latest?.Notes,
+            url = _latest?.HtmlUrl,
+            percent = Math.Round(_updPercent),
+            error = _updError,
+            hasToken = !string.IsNullOrEmpty(_settings.UpdateTokenProtected),
+            auto = _settings.AutoUpdateCheck,
+            mode = Updater.IsInstalled ? "installer" : "portable",
+        }));
+    }
+
+    private async Task CheckUpdatesAsync(bool silent)
+    {
+        if (_updBusy) return;
+        _updBusy = true;
+        if (!silent) SetUpdState("checking");
+        try
+        {
+            _latest = await _updater.GetLatestAsync(_settings.UpdateToken, CancellationToken.None);
+            _settings.LastUpdateCheck = DateTime.UtcNow;
+            _settings.Save();
+            _updError = null;
+            SetUpdState(_latest.Latest > Updater.CurrentVersion ? "available" : "none");
+        }
+        catch (Exception ex)
+        {
+            // Beim automatischen Prüfen im Hintergrund keine Fehlermeldung anzeigen
+            if (!silent)
+            {
+                _updError = ex is HttpRequestException ? "Keine Verbindung zu GitHub: " + ex.Message : ex.Message;
+                SetUpdState("error");
+            }
+        }
+        finally
+        {
+            _updBusy = false;
+        }
+    }
+
+    private async Task InstallUpdateAsync()
+    {
+        if (_updBusy || _latest == null || _latest.Latest <= Updater.CurrentVersion) return;
+        _updBusy = true;
+        try
+        {
+            var installed = Updater.IsInstalled;
+            var asset = installed ? _latest.Setup : _latest.Exe;
+            if (asset == null)
+                throw new InvalidOperationException(installed ? "Im Release fehlt der Installer." : "Im Release fehlt JellyDrax.exe.");
+
+            var exe = Environment.ProcessPath ?? Application.ExecutablePath;
+            string target;
+            if (installed)
+            {
+                var dir = Path.Combine(Path.GetTempPath(), "JellyDrax-Update");
+                Directory.CreateDirectory(dir);
+                target = Path.Combine(dir, asset.Name);
+            }
+            else
+            {
+                // neben die laufende EXE (gleiches Laufwerk -> Tausch per Umbenennen)
+                target = exe + ".download";
+            }
+
+            SetUpdState("downloading");
+            var progress = new Progress<double>(p => { if (p - _updPercent >= 1 || p >= 100) SetUpdState("downloading", p); });
+            await _updater.DownloadAsync(asset, target, _settings.UpdateToken, progress, CancellationToken.None);
+
+            SetUpdState("installing", 100);
+            await Task.Delay(800);
+            if (installed)
+            {
+                // Installer wartet, bis JellyDrax beendet ist, installiert still und startet JellyDrax neu
+                Process.Start(new ProcessStartInfo(target, "/S /UPDATE") { UseShellExecute = true });
+            }
+            else
+            {
+                var old = exe + ".old";
+                if (File.Exists(old)) File.Delete(old);
+                File.Move(exe, old);   // eine laufende EXE darf umbenannt werden
+                File.Move(target, exe);
+                Process.Start(new ProcessStartInfo(exe) { UseShellExecute = true });
+            }
+            Close();
+        }
+        catch (Exception ex)
+        {
+            _updError = ex is UnauthorizedAccessException
+                ? "Keine Schreibrechte im Programmordner. Bitte die neue Version manuell herunterladen."
+                : ex.Message;
+            SetUpdState("error");
+        }
+        finally
+        {
+            _updBusy = false;
+        }
+    }
+
+    private async Task CheckUpdatesFromMenuAsync()
+    {
+        if (!_onLocalPage && _core != null)
+        {
+            await _core.ExecuteScriptAsync("window.JellyDrax && (JellyDrax.openSettings('updates'), JellyDrax.checkUpdates())");
+            return;
+        }
+        // auf der Verbindungsseite: einfacher Dialog
+        await CheckUpdatesAsync(silent: false);
+        if (_updState == "available" && _latest != null)
+        {
+            var answer = MessageBox.Show(this, $"JellyDrax {_latest.Latest.ToString(3)} ist verfügbar (installiert: {Updater.CurrentVersion.ToString(3)}).\n\nJetzt aktualisieren? JellyDrax startet danach neu.",
+                "Update verfügbar", MessageBoxButtons.YesNo, MessageBoxIcon.Information);
+            if (answer == DialogResult.Yes) await InstallUpdateAsync();
+            if (_updState == "error") MessageBox.Show(this, _updError, "Update", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+        else if (_updState == "none")
+            MessageBox.Show(this, $"JellyDrax {Updater.CurrentVersion.ToString(3)} ist aktuell.", "Update", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        else if (_updState == "error")
+            MessageBox.Show(this, _updError, "Update", MessageBoxButtons.OK, MessageBoxIcon.Warning);
     }
 
     /// <summary>
@@ -417,6 +569,21 @@ public sealed class MainForm : Form
                         break;
                     case "fetch":
                         await ProxyFetchAsync((string?)msg!["id"], (string?)msg["url"]);
+                        break;
+                    case "update-get":
+                        PostUpdateStatus();
+                        break;
+                    case "update-check":
+                        await CheckUpdatesAsync(silent: false);
+                        break;
+                    case "update-install":
+                        await InstallUpdateAsync();
+                        break;
+                    case "update-settings":
+                        if (msg!["auto"] is JsonValue a && a.TryGetValue<bool>(out var auto)) _settings.AutoUpdateCheck = auto;
+                        if (msg["token"] is JsonValue t && t.TryGetValue<string>(out var token)) _settings.UpdateToken = token;
+                        _settings.Save();
+                        PostUpdateStatus();
                         break;
                 }
             }
@@ -605,7 +772,7 @@ public sealed class MainForm : Form
     private const int WM_SYSCOMMAND = 0x0112;
     private const uint MF_STRING = 0x0000, MF_SEPARATOR = 0x0800;
     private const int CmdChangeServer = 0x0100, CmdReload = 0x0110, CmdClearCache = 0x0120,
-        CmdFullscreen = 0x0130, CmdDevTools = 0x0140, CmdAbout = 0x0150, CmdDesign = 0x0160;
+        CmdFullscreen = 0x0130, CmdDevTools = 0x0140, CmdAbout = 0x0150, CmdDesign = 0x0160, CmdUpdate = 0x0170;
 
     [DllImport("user32.dll")]
     private static extern IntPtr GetSystemMenu(IntPtr hWnd, bool bRevert);
@@ -633,6 +800,7 @@ public sealed class MainForm : Form
         AppendMenu(menu, MF_STRING, (UIntPtr)CmdFullscreen, "Vollbild\tF11");
         AppendMenu(menu, MF_STRING, (UIntPtr)CmdDevTools, "Entwicklertools\tF12");
         AppendMenu(menu, MF_SEPARATOR, UIntPtr.Zero, null);
+        AppendMenu(menu, MF_STRING, (UIntPtr)CmdUpdate, "Nach Updates suchen …");
         AppendMenu(menu, MF_STRING, (UIntPtr)CmdAbout, "Über JellyDrax");
     }
 
@@ -649,6 +817,7 @@ public sealed class MainForm : Form
                 case CmdDevTools: _core?.OpenDevToolsWindow(); return;
                 case CmdAbout: ShowAbout(); return;
                 case CmdDesign: ToggleClientSettings(); return;
+                case CmdUpdate: _ = CheckUpdatesFromMenuAsync(); return;
             }
         }
         base.WndProc(ref m);

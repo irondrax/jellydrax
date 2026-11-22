@@ -13,6 +13,12 @@ public sealed class AppSettings
     public int[]? WindowBounds { get; set; }
     public bool Maximized { get; set; }
     public double Zoom { get; set; } = 1.0;
+    /// <summary>Beim Start automatisch nach Updates suchen.</summary>
+    public bool AutoUpdateCheck { get; set; } = true;
+    public DateTime? LastUpdateCheck { get; set; }
+    /// <summary>Optionaler GitHub-Token (für ein privates Repository), mit DPAPI für den Windows-Benutzer verschlüsselt.</summary>
+    public string? UpdateTokenProtected { get; set; }
+
     /// <summary>JellyDrax-Design-Einstellungen (Themes, Media Bar, Animationen) – Inhalt verwaltet jellydrax.js.</summary>
     public JsonObject? Client { get; set; }
 
@@ -85,6 +91,34 @@ public sealed class AppSettings
         if (RecentServers.Count > 8)
             RecentServers.RemoveRange(8, RecentServers.Count - 8);
     }
+
+    [JsonIgnore]
+    public string? UpdateToken
+    {
+        get
+        {
+            if (string.IsNullOrEmpty(UpdateTokenProtected)) return null;
+            try
+            {
+                var data = System.Security.Cryptography.ProtectedData.Unprotect(
+                    Convert.FromBase64String(UpdateTokenProtected), TokenEntropy, System.Security.Cryptography.DataProtectionScope.CurrentUser);
+                return System.Text.Encoding.UTF8.GetString(data);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+        set
+        {
+            UpdateTokenProtected = string.IsNullOrWhiteSpace(value)
+                ? null
+                : Convert.ToBase64String(System.Security.Cryptography.ProtectedData.Protect(
+                    System.Text.Encoding.UTF8.GetBytes(value.Trim()), TokenEntropy, System.Security.Cryptography.DataProtectionScope.CurrentUser));
+        }
+    }
+
+    private static readonly byte[] TokenEntropy = System.Text.Encoding.UTF8.GetBytes("JellyDrax.UpdateToken");
 
     public bool IsCertificateTrusted(string host) =>
         TrustedCertificateHosts.Any(h => string.Equals(h, host, StringComparison.OrdinalIgnoreCase));

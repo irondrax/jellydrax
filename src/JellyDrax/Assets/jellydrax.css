@@ -587,6 +587,200 @@ html.jdx.jdx-liquid #jdx-settings nav button.is-active,
 html.jdx.jdx-liquid #jdx-settings .jdx-b { border-radius: 999px; }
 
 /* =====================================================================
+   Videoplayer im JellyDrax-Design (Schalter "Player im JellyDrax-Design")
+   Nur Optik: Aufbau und Funktionen des Jellyfin-Players bleiben unverändert,
+   damit Player-Plugins (z. B. Intro Skipper) weiter funktionieren.
+   ===================================================================== */
+
+html.jdx.jdx-player .skinHeader-withBackground.osdHeader {
+  background: linear-gradient(180deg, rgba(var(--jdx-bg-rgb), 0.8) 0%, rgba(var(--jdx-bg-rgb), 0) 100%) !important;
+  color: var(--jdx-text) !important;
+  font-family: var(--jdx-font);
+}
+html.jdx.jdx-player .videoOsdBottom {
+  background: linear-gradient(0deg, rgba(var(--jdx-bg-rgb), 0.88) 0%, rgba(var(--jdx-bg-rgb), 0.4) 55%, rgba(var(--jdx-bg-rgb), 0) 100%) !important;
+  color: var(--jdx-text);
+  font-family: var(--jdx-font);
+}
+html.jdx.jdx-player .videoOsdBottom .osdTextContainer { color: var(--jdx-text); }
+html.jdx.jdx-player .videoOsdBottom .osdPositionText,
+html.jdx.jdx-player .videoOsdBottom .osdDurationText { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 0.95em; }
+html.jdx.jdx-player .videoOsdBottom .osdDurationText { color: var(--jdx-muted); }
+
+/* Fortschrittsbalken und Lautstärke */
+html.jdx.jdx-player .videoOsdBottom .mdl-slider-background-flex {
+  height: 0.34em;
+  margin-top: -0.17em;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.18);
+  transition: height 0.15s ease, margin-top 0.15s ease;
+}
+html.jdx.jdx-player .videoOsdBottom .sliderContainer:hover .mdl-slider-background-flex { height: 0.52em; margin-top: -0.26em; }
+html.jdx.jdx-player .videoOsdBottom .mdl-slider-background-lower:not(.mdl-slider-background-lower-clear) {
+  background: linear-gradient(90deg, var(--jdx-accent), var(--jdx-accent2)) !important;
+  border-radius: 99px;
+}
+html.jdx.jdx-player .videoOsdBottom .mdl-slider-background-upper { background: rgba(255, 255, 255, 0.32) !important; }
+html.jdx.jdx-player .videoOsdBottom .mdl-slider::-webkit-slider-thumb {
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(var(--jdx-accent-rgb), 0.45), 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+html.jdx.jdx-player .videoOsdBottom .sliderBubble {
+  background: rgba(var(--jdx-surface-rgb), 0.88);
+  color: var(--jdx-text);
+  border: 1px solid rgba(var(--jdx-text-rgb), 0.12);
+  border-radius: 12px;
+  overflow: hidden;
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.7);
+}
+html.jdx.jdx-player .videoOsdBottom .chapterThumbContainer { border-radius: 10px; overflow: hidden; }
+
+/* Buttons */
+html.jdx.jdx-player .videoOsdBottom .buttons .paper-icon-button-light,
+html.jdx.jdx-player .osdHeader .MuiIconButton-root,
+html.jdx.jdx-player .osdHeader .headerButton {
+  color: var(--jdx-text);
+  border-radius: 50%;
+  transition: background-color 0.2s ease, transform 0.2s var(--jdx-ease), box-shadow 0.2s ease;
+}
+html.jdx.jdx-player .videoOsdBottom .buttons .paper-icon-button-light:hover,
+html.jdx.jdx-player .osdHeader .MuiIconButton-root:hover,
+html.jdx.jdx-player .osdHeader .headerButton:hover { background: rgba(var(--jdx-text-rgb), 0.14); }
+html.jdx.jdx-player .videoOsdBottom .buttons .btnPause {
+  background: linear-gradient(135deg, var(--jdx-accent), var(--jdx-accent2)) !important;
+  color: var(--jdx-on-accent) !important;
+  box-shadow: 0 8px 20px -8px rgba(var(--jdx-accent-rgb), 0.95);
+  margin: 0 0.3em;
+}
+html.jdx.jdx-player .videoOsdBottom .buttons .btnPause:hover { transform: scale(1.07); }
+html.jdx.jdx-player .videoOsdBottom .osdTimeText { color: var(--jdx-muted); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* Inseln: Glasflächen hinter zusammengehörenden Buttons (von jellydrax.js berechnet) */
+html.jdx.jdx-player .videoOsdBottom .osdControls { position: relative; }
+html.jdx.jdx-player.jdx-islands-on .videoOsdBottom .buttons,
+html.jdx.jdx-player.jdx-islands-on .osdHeader .videoOsd-appBar,
+html.jdx.jdx-player.jdx-islands-on .osdHeader .headerTop { position: relative; z-index: 1; }
+html.jdx.jdx-player.jdx-islands-on .jdx-island-start { margin-left: 1.3em !important; }
+html.jdx.jdx-player.jdx-islands-on .videoOsdBottom .osdTimeText { padding: 0 0.6em; }
+html.jdx.jdx-player.jdx-islands-on .videoOsdBottom .volumeButtons { margin-right: 0; }
+html.jdx.jdx-player.jdx-islands-on .videoOsdBottom .buttons { padding-top: 0.5em; padding-bottom: 0.2em; }
+
+.jdx-islands { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+.jdx-island {
+  position: absolute;
+  border-radius: 999px;
+  background: rgba(var(--jdx-surface-rgb), 0.55);
+  border: 1px solid rgba(var(--jdx-text-rgb), 0.1);
+  box-shadow: 0 12px 30px -14px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  -webkit-backdrop-filter: blur(18px) saturate(1.5);
+  backdrop-filter: blur(18px) saturate(1.5);
+}
+html.jdx.jdx-glassmode .jdx-island { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.16); }
+html.jdx.jdx-liquid .jdx-island {
+  background: var(--jdx-lg-fill);
+  border: 0;
+  box-shadow: var(--jdx-lg-rim), var(--jdx-lg-shadow);
+  -webkit-backdrop-filter: var(--jdx-lg-blur);
+  backdrop-filter: var(--jdx-lg-blur);
+}
+html.jdx.jdx-liquid.jdx-refraction .jdx-island {
+  -webkit-backdrop-filter: url(#jdx-liquid-filter) saturate(1.9) brightness(1.1);
+  backdrop-filter: url(#jdx-liquid-filter) saturate(1.9) brightness(1.1);
+}
+
+/* =====================================================================
+   Updates
+   ===================================================================== */
+
+#jdx-update-toast {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: min(460px, calc(100vw - 36px));
+  padding: 12px 14px 12px 16px;
+  border-radius: 16px;
+  color: var(--jdx-text);
+  font: 14px/1.4 var(--jdx-font);
+  background: rgba(var(--jdx-surface-rgb), 0.86);
+  border: 1px solid rgba(var(--jdx-text-rgb), 0.12);
+  box-shadow: 0 20px 50px -18px rgba(0, 0, 0, 0.85);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  backdrop-filter: blur(18px) saturate(1.4);
+  animation: jdx-t-rise 0.35s var(--jdx-ease) both;
+}
+#jdx-update-toast b { display: block; }
+#jdx-update-toast small { color: var(--jdx-muted); }
+#jdx-update-toast button {
+  all: unset;
+  cursor: pointer;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-weight: 650;
+  white-space: nowrap;
+  background: rgba(var(--jdx-text-rgb), 0.1);
+}
+#jdx-update-toast button.primary { background: linear-gradient(135deg, var(--jdx-accent), var(--jdx-accent2)); color: var(--jdx-on-accent); }
+html.transparentDocument #jdx-update-toast { display: none; }
+.jdx-toolbarBtn.jdx-has-update,
+.jdx-headerBtn.jdx-has-update { position: relative; }
+.jdx-toolbarBtn.jdx-has-update::after,
+.jdx-headerBtn.jdx-has-update::after {
+  content: "";
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--jdx-accent2);
+  box-shadow: 0 0 0 2px var(--jdx-bg);
+}
+#jdx-settings .jdx-update-card {
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: rgba(var(--jdx-accent-rgb), 0.1);
+  border: 1px solid rgba(var(--jdx-accent-rgb), 0.35);
+  margin-bottom: 10px;
+}
+#jdx-settings .jdx-update-card h4 { margin: 0 0 6px; font-size: 16px; }
+#jdx-settings .jdx-update-notes {
+  max-height: 220px;
+  overflow: auto;
+  margin: 10px 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--jdx-muted);
+  font-size: 13px;
+  white-space: pre-wrap;
+}
+#jdx-settings .jdx-progress { height: 8px; border-radius: 99px; background: rgba(var(--jdx-text-rgb), 0.12); overflow: hidden; margin: 10px 0 4px; }
+#jdx-settings .jdx-progress i {
+  display: block;
+  height: 100%;
+  width: 100%;
+  transform-origin: left center;
+  background: linear-gradient(90deg, var(--jdx-accent), var(--jdx-accent2));
+  transition: transform 0.2s ease;
+}
+#jdx-settings input[type="password"] {
+  font: inherit;
+  color: var(--jdx-text);
+  background: var(--jdx-surface2);
+  border: 1px solid rgba(var(--jdx-text-rgb), 0.1);
+  border-radius: 9px;
+  padding: 7px 10px;
+  outline: none;
+  min-width: 220px;
+}
+
+/* =====================================================================
    Media Bar
    ===================================================================== */
 

@@ -74,7 +74,7 @@ jobs:
       - name: Version bestimmen
         env:
           GH_TOKEN: ${{ github.token }}
-        run: bash .github/scripts/version.sh
+        run: bash .github/scripts/version.sh linux
 
       - name: Werkzeuge für rpm- und pacman-Pakete
         if: env.SKIP != 'true'
@@ -85,7 +85,6 @@ jobs:
         working-directory: linux
         run: |
           npm ci
-          npm version "$VERSION" --no-git-tag-version --allow-same-version
           npm run dist
 
       - name: Ins Release hochladen

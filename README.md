@@ -17,7 +17,7 @@ Entwickelt für **Jellyfin 12.4** (funktioniert auch mit 10.10/10.11).
 | **Design** | eigene Farben, Schrift, Eckenradius, Kopfleiste mit Glas-Effekt, Hintergrund ohne Medienbilder |
 | **Server-CSS** | wird standardmäßig ignoriert (z. B. ElegantFin) – abschaltbar unter *Erweitert* |
 | **Media Bar** | eigene Media Bar auf der Startseite (6 Stile, 8 Übergänge, Trailer im Hintergrund) |
-| **Player** | **unverändert** – abgespielt wird immer mit dem Jellyfin-Player, Player-Plugins (z. B. Intro Skipper) funktionieren wie gewohnt |
+| **Player** | Optik im Theme-Design mit Button-Inseln (abschaltbar); abgespielt wird weiterhin mit dem Jellyfin-Player, Player-Plugins (z. B. Intro Skipper) funktionieren wie gewohnt |
 | **Plugins** | JavaScript-Plugins des Servers laufen weiterhin; eine Media Bar eines Server-Plugins wird auf Wunsch ausgeblendet |
 
 ## JellyDrax-Einstellungen
@@ -45,6 +45,11 @@ Rechtsklick-Menü der Titelleiste. Alle Änderungen sind sofort sichtbar und wer
 - **Bewertungen** – IMDb, Rotten Tomatoes, Metacritic (und Community ★) in der Media Bar und auf
   Film-/Serienseiten; jede Quelle schaltbar, Größe per Regler. IMDb/Metacritic über einen kostenlosen
   OMDb-Schlüssel (omdbapi.com), Ergebnisse werden 14 Tage zwischengespeichert.
+- **Player** – Videoplayer im Theme-Design, Buttons als „Inseln“ gruppiert (Wiedergabe · Endzeit ·
+  Favorit/Untertitel/Audio · Lautstärke · Einstellungen/Vollbild). Nur Optik: Player-Plugins funktionieren
+  unverändert, Plugin-Buttons erhalten eine eigene Insel.
+- **Updates** (Windows) – Suche nach neuen Versionen und Update mit einem Klick (Installer im Hintergrund bzw.
+  Austausch der EXE, SHA-256-geprüft), automatische Prüfung beim Start.
 - **Animationen** – Hover über Poster/Medienfelder: *Elegant* (wie ElegantFin: feiner Rahmen wird weiß,
   leichter Zoom, Lichtstreifen über das Bild), Anheben, Bild-Zoom,
   Leuchten, 3D-Kippen, Lichtreflex, keine – mit Live-Vorschau. Seitenwechsel-Animation und
@@ -56,11 +61,11 @@ Rechtsklick-Menü der Titelleiste. Alle Änderungen sind sofort sichtbar und wer
 
 ## Installation
 
-**Installer:** `JellyDrax-Setup-2.4.0.exe` ausführen. Installiert pro Benutzer (keine Adminrechte) nach
+**Installer:** `JellyDrax-Setup-2.5.0.exe` ausführen. Installiert pro Benutzer (keine Adminrechte) nach
 `%LOCALAPPDATA%\Programs\JellyDrax`, legt einen **Startmenü-Eintrag** an (optional Desktop-Verknüpfung) und
 erscheint unter *Einstellungen → Apps → Installierte Apps*. Eine vorhandene Installation von
 „Jellyfin Desktop“ wird ersetzt – Server, Anmeldung und Fensterposition werden übernommen.
-Stille Installation: `JellyDrax-Setup-2.4.0.exe /S`.
+Stille Installation: `JellyDrax-Setup-2.5.0.exe /S`.
 
 **Ohne Installation:** `JellyDrax.exe` direkt ausführen (kein .NET nötig).
 
@@ -70,6 +75,14 @@ JellyDrax.exe --reset                                # gespeicherten Server verg
 ```
 
 **Portabler Modus:** leere Datei `portable.txt` neben die EXE legen → alle Daten landen in `.\data`.
+
+## Updates (Windows)
+
+*Einstellungen → Updates* (oder Rechtsklick auf die Titelleiste → „Nach Updates suchen …“) prüft das
+neueste [Release](https://github.com/irondrax/jellydrax/releases) und installiert es nach Bestätigung.
+Solange das Repository privat ist, braucht JellyDrax dafür einen GitHub-Token mit Lesezugriff
+(„Fine-grained token“, Berechtigung *Contents: Read-only* für dieses Repository); er wird mit dem
+Windows-Datenschutz (DPAPI) verschlüsselt gespeichert. Bei einem öffentlichen Repository ist kein Token nötig.
 
 ## Tastenkürzel
 
@@ -135,7 +148,7 @@ Server, sofern nicht `--enable-vaapi` und ein passender VA-API-Treiber die Hardw
 
 ```
 dotnet publish src/JellyDrax -c Release -o dist
-makensis -DVERSION=2.4.0 installer/JellyDrax.nsi
+makensis -DVERSION=2.5.0 installer/JellyDrax.nsi
 ```
 
 Benötigt das .NET 8 SDK und für den Installer [NSIS](https://nsis.sourceforge.io).
