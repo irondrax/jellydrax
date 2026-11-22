@@ -102,7 +102,8 @@
     reduceMotion: false,
     player: {
       theme: true,
-      islands: true
+      islands: true,
+      hideTopActions: true
     },
     ratings: {
       imdb: true,
@@ -305,6 +306,7 @@
     r.classList.toggle('jdx-reduce-motion', !!S.reduceMotion);
     r.classList.toggle('jdx-player', !!S.player.theme);
     r.classList.toggle('jdx-islands-on', !!(S.player.theme && S.player.islands));
+    r.classList.toggle('jdx-hide-osd-actions', !!S.player.hideTopActions);
     r.classList.toggle('jdx-own-ratings', !!(S.ratings.onDetails && S.ratings.hideJellyfinRatings));
     r.style.setProperty('--jdx-rating-scale', String(S.ratings.size || 1));
     r.setAttribute('data-jdx-rating-style', S.ratings.style || 'badges');
@@ -383,11 +385,12 @@
     {
       container: '.osdHeader .videoOsd-appBar',
       groups: [
+        ['window', '.jdx-winctl'],
         ['nav', function (c) { return c.matches('.MuiIconButton-root, .MuiTypography-root, h1, h2, h3, h4, h5, h6, p, span'); }],
         ['actions', function (c) { return !!c.querySelector('button, a'); }]
       ]
     },
-    { container: '.osdHeader .headerTop', groups: [['left', '.headerLeft'], ['right', '.headerRight']] }
+    { container: '.osdHeader .headerTop', groups: [['window', '.jdx-winctl'], ['left', '.headerLeft'], ['right', '.headerRight']] }
   ];
 
   var islandWatch = typeof WeakMap === 'function' ? new WeakMap() : null;
@@ -402,8 +405,11 @@
   // Fläche des sichtbaren Inhalts (bei Containern: Vereinigung der sichtbaren Kinder)
   function contentRect(n) {
     if (n.tagName === 'BUTTON' || n.tagName === 'A' || !n.children.length) return visibleRect(n);
+    // Schieberegler als Ganzes – ihre Wert-Blase ("23") und Kapitel-Vorschau schweben darüber
+    if (n.classList.contains('sliderContainer')) return visibleRect(n);
     var u = null;
     Array.prototype.forEach.call(n.children, function (c) {
+      if (c.classList.contains('jdx-islands') || /^(absolute|fixed)$/.test(getComputedStyle(c).position)) return;
       var r = contentRect(c);
       if (!r) return;
       u = u ? { left: Math.min(u.left, r.left), top: Math.min(u.top, r.top), right: Math.max(u.right, r.right), bottom: Math.max(u.bottom, r.bottom) } : { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
@@ -492,6 +498,112 @@
   }
 
   function scheduleIslands() { if (!islandFrame) islandFrame = requestAnimationFrame(updateIslands); }
+
+  // ======================================================== Fenster ohne Titelleiste (Windows-App)
+  // Minimieren/Maximieren/Schließen sitzen in der Kopfleiste (bzw. im Player-Kopf). Verschieben über
+  // die freie Fläche der Kopfleiste (Doppelklick = maximieren, Rechtsklick = Fenstermenü), Größe am
+  // oberen Rand über einen schmalen Streifen; links/rechts/unten übernimmt Windows selbst.
+
+  var WIN = { frameless: !!FEATURES.frameless, maximized: false, fullscreen: false };
+  var WIN_ICONS = {
+    min: '<svg viewBox="0 0 10 10" aria-hidden="true"><path d="M0 5h10" stroke="currentColor" stroke-width="1" fill="none"/></svg>',
+    max: '<svg viewBox="0 0 10 10" aria-hidden="true"><rect x="0.5" y="0.5" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1" fill="none"/></svg>',
+    restore: '<svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2.5 2.5V1.6c0-.6.5-1.1 1.1-1.1h4.8c.6 0 1.1.5 1.1 1.1v4.8c0 .6-.5 1.1-1.1 1.1H7.5" stroke="currentColor" stroke-width="1" fill="none"/><rect x="0.5" y="2.5" width="7" height="7" rx="1.2" stroke="currentColor" stroke-width="1" fill="none"/></svg>',
+    close: '<svg viewBox="0 0 10 10" aria-hidden="true"><path d="M0.6 0.6l8.8 8.8M9.4 0.6L0.6 9.4" stroke="currentColor" stroke-width="1" fill="none"/></svg>'
+  };
+  var DRAG_ZONES = '.MuiAppBar-root .MuiToolbar-root, .osdHeader .videoOsd-appBar, .skinHeader .headerTop, #jdx-winctl-float';
+  var NO_DRAG = 'button, a, input, select, textarea, label, [role="button"], [role="tab"], [role="menuitem"], [contenteditable], .MuiButtonBase-root, .MuiInputBase-root, .jdx-winctl';
+
+  function winPost(action, extra) { var m = { jdx: 'win', action: action }; if (extra) Object.keys(extra).forEach(function (k) { m[k] = extra[k]; }); hostPost(m); }
+  function winActive() { return WIN.frameless && FEATURES.frameless; }
+
+  function buildWinControls() {
+    var box = el('div', { class: 'jdx-winctl', role: 'group', 'aria-label': 'Fenster' });
+    [['min', 'Minimieren', 'minimize'], ['max', 'Maximieren', 'maximize'], ['close', 'Schließen', 'close']].forEach(function (b) {
+      var btn = el('button', { type: 'button', class: 'jdx-win-' + b[0], title: b[1], 'aria-label': b[1] });
+      btn.innerHTML = WIN_ICONS[b[0]];
+      btn.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); winPost(b[2]); });
+      btn.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+      box.appendChild(btn);
+    });
+    updateWinIcons(box);
+    return box;
+  }
+
+  function updateWinIcons(scope) {
+    (scope ? [scope] : document.querySelectorAll('.jdx-winctl')).forEach(function (box) {
+      var b = box.querySelector('.jdx-win-max');
+      if (!b) return;
+      var restore = WIN.maximized || WIN.fullscreen;
+      b.innerHTML = restore ? WIN_ICONS.restore : WIN_ICONS.max;
+      b.title = WIN.fullscreen ? 'Vollbild beenden' : restore ? 'Verkleinern' : 'Maximieren';
+    });
+  }
+
+  function ensureWindowControls() {
+    var on = winActive();
+    document.documentElement.classList.toggle('jdx-frameless', on);
+    document.documentElement.classList.toggle('jdx-window-maximized', on && (WIN.maximized || WIN.fullscreen));
+    if (!on) {
+      document.querySelectorAll('.jdx-winctl, #jdx-winctl-float, .jdx-resize').forEach(function (n) { n.remove(); });
+      return;
+    }
+    // Ziel: Player-Kopf > moderne Kopfleiste > klassische Kopfleiste > schwebend oben rechts
+    var pick = function (sel) { return Array.prototype.filter.call(document.querySelectorAll(sel), isVisible)[0]; };
+    var target = pick('.osdHeader .videoOsd-appBar') || pick('.osdHeader .headerTop') ||
+      pick('.MuiAppBar-root .MuiToolbar-root') || pick('.skinHeader:not(.osdHeader) .headerRight');
+    var existing = document.querySelectorAll('.jdx-winctl');
+    var placed = false;
+    existing.forEach(function (n) {
+      var ok = target && n.parentNode === target && !placed && isVisible(n);
+      if (ok) placed = true; else if (n.parentNode && n.parentNode.id !== 'jdx-winctl-float') n.remove();
+    });
+    var float = document.getElementById('jdx-winctl-float');
+    if (target) {
+      if (float) float.remove();
+      if (!placed) target.appendChild(buildWinControls());
+    } else if (!float && document.body) {
+      float = el('div', { id: 'jdx-winctl-float' }, [buildWinControls()]);
+      document.body.appendChild(float);
+    }
+    // schmaler Streifen oben zum Ändern der Größe (nicht im maximierten Zustand)
+    if (!document.querySelector('.jdx-resize') && document.body) {
+      [['top', 'jdx-resize-top'], ['topleft', 'jdx-resize-tl'], ['topright', 'jdx-resize-tr']].forEach(function (r) {
+        var strip = el('div', { class: 'jdx-resize ' + r[1], 'aria-hidden': 'true' });
+        strip.addEventListener('mousedown', function (e) { if (e.button === 0) { e.preventDefault(); winPost('resize', { edge: r[0] }); } });
+        document.body.appendChild(strip);
+      });
+    }
+  }
+
+  var lastDown = { t: 0, x: 0, y: 0 };
+  document.addEventListener('mousedown', function (e) {
+    if (!winActive() || e.button !== 0) return;
+    var zone = e.target.closest && e.target.closest(DRAG_ZONES);
+    if (!zone || e.target.closest(NO_DRAG)) return;
+    e.preventDefault();
+    var now = Date.now();
+    var dbl = now - lastDown.t < 450 && Math.abs(e.screenX - lastDown.x) < 6 && Math.abs(e.screenY - lastDown.y) < 6;
+    lastDown = dbl ? { t: 0, x: 0, y: 0 } : { t: now, x: e.screenX, y: e.screenY };
+    winPost(dbl ? 'maximize' : 'drag');
+  }, true);
+  document.addEventListener('contextmenu', function (e) {
+    if (!winActive()) return;
+    var zone = e.target.closest && e.target.closest(DRAG_ZONES);
+    if (!zone || e.target.closest(NO_DRAG)) return;
+    e.preventDefault();
+    winPost('menu');
+  }, true);
+
+  function onWinState(m) {
+    WIN.frameless = !!m.frameless && !!FEATURES.frameless;
+    WIN.maximized = !!m.maximized;
+    WIN.fullscreen = !!m.fullscreen;
+    ensureWindowControls();
+    updateWinIcons();
+    scheduleIslands();
+    if (activeTab === 'advanced' && document.getElementById('jdx-settings')) renderTab();
+  }
 
   // ======================================================== Updates (Windows-App)
 
@@ -590,6 +702,7 @@
     HOST.addEventListener('message', function (ev) {
       var m = ev.data;
       if (m && m.jdx === 'update') { onUpdateMessage(m); return; }
+      if (m && m.jdx === 'win-state') { onWinState(m); return; }
       if (!m || m.jdx !== 'fetchResult' || !fetchWaiters[m.id]) return;
       var w = fetchWaiters[m.id]; delete fetchWaiters[m.id];
       m.ok ? w.resolve(m.body) : w.reject(new Error(m.error || ('HTTP ' + m.status)));
@@ -1552,6 +1665,7 @@
       add(el('div', { class: 'jdx-buttons' }, [el('button', { class: 'jdx-b', type: 'button', text: 'Neue Titel laden', onclick: function () { refreshMediaBar(true); } })]));
     } else if (activeTab === 'player') {
       add(row('Player im JellyDrax-Design', 'Farben, Fortschrittsbalken und Buttons des Videoplayers passend zum Theme. Funktionen und Player-Plugins bleiben unverändert.', toggleCtl('player.theme')));
+      add(row('SyncPlay und Cast oben im Player ausblenden', 'Die beiden Symbole oben rechts im Player', toggleCtl('player.hideTopActions')));
       add(row('Buttons als Inseln gruppieren', 'Zusammengehörende Buttons erhalten eine gemeinsame Glasfläche: Wiedergabe · Endzeit · Favorit/Untertitel/Audio · Lautstärke · Einstellungen/Vollbild (oben: Zurück/Titel · SyncPlay/Cast). Buttons von Plugins bekommen eine eigene Insel.', toggleCtl('player.islands')));
     } else if (activeTab === 'updates') {
       renderUpdatesTab(add);
@@ -1594,6 +1708,13 @@
       if (needsReload) {
         add(el('div', { class: 'jdx-note' }, [el('span', { text: 'Diese Änderung wird nach dem Neuladen wirksam.' }),
           el('button', { class: 'jdx-b primary', type: 'button', text: 'Jetzt neu laden', onclick: function () { location.reload(); } })]));
+      }
+      if (FEATURES.frameless) {
+        var fl = el('input', { type: 'checkbox' });
+        fl.checked = WIN.frameless;
+        fl.addEventListener('change', function () { winPost('set-frameless', { value: fl.checked }); });
+        add(row('Titelleiste ausblenden', 'Minimieren, Maximieren und Schließen sitzen dann rechts in der Kopfleiste; verschieben über die freie Fläche der Kopfleiste, Doppelklick maximiert, Rechtsklick öffnet das Fenstermenü.',
+          el('span', { class: 'jdx-switch' }, [fl, el('span')])));
       }
       add(row('Server-CSS ignorieren', 'Das unter Dashboard → Branding hinterlegte CSS (z. B. ElegantFin) wird nicht geladen. Plugins und Player bleiben unverändert.',
         toggleCtl('ignoreServerCss', function () { needsReload = true; renderTab(); })));
@@ -1744,8 +1865,12 @@
     ensureDetailRatings();
     if (S.player.theme && S.player.islands && document.querySelector('.videoOsdBottom, .osdHeader')) scheduleIslands();
     if (!updateAsked && FEATURES.updates) { updateAsked = true; hostPost({ jdx: 'update-get' }); }
+    if (FEATURES.frameless) {
+      if (!winAsked) { winAsked = true; hostPost({ jdx: 'win', action: 'get' }); }
+      ensureWindowControls();
+    }
   }
-  var updateAsked = false;
+  var updateAsked = false, winAsked = false;
 
   window.JellyDrax = {
     version: VERSION,

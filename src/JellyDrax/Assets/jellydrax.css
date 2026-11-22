@@ -657,6 +657,16 @@ html.jdx.jdx-player .videoOsdBottom .buttons .btnPause {
 html.jdx.jdx-player .videoOsdBottom .buttons .btnPause:hover { transform: scale(1.07); }
 html.jdx.jdx-player .videoOsdBottom .osdTimeText { color: var(--jdx-muted); font-weight: 600; font-variant-numeric: tabular-nums; }
 
+/* Kopf des Players: kompakter, mit Abstand zum Fensterrand */
+html.jdx.jdx-player .osdHeader .videoOsd-appBar { padding-top: 10px; min-height: 52px; }
+html.jdx.jdx-player .osdHeader .videoOsd-appBar .MuiIconButton-root { padding: 6px; }
+html.jdx.jdx-player .osdHeader .videoOsd-appBar .MuiIconButton-root svg { font-size: 1.35rem; }
+html.jdx.jdx-player .osdHeader .videoOsd-appBar .MuiTypography-root { font-size: 0.95rem; font-weight: 600; margin-right: 6px; }
+/* SyncPlay/Cast oben rechts ausblenden (Fenster-Buttons bleiben) */
+html.jdx.jdx-hide-osd-actions .osdHeader .videoOsd-appBar > .MuiBox-root:not(.jdx-winctl),
+html.jdx.jdx-hide-osd-actions .osdHeader .headerSyncButton,
+html.jdx.jdx-hide-osd-actions .osdHeader .headerCastButton { display: none !important; }
+
 /* Inseln: Glasflächen hinter zusammengehörenden Buttons (von jellydrax.js berechnet) */
 html.jdx.jdx-player .videoOsdBottom .osdControls { position: relative; }
 html.jdx.jdx-player.jdx-islands-on .videoOsdBottom .buttons,
@@ -689,6 +699,57 @@ html.jdx.jdx-liquid.jdx-refraction .jdx-island {
   -webkit-backdrop-filter: url(#jdx-liquid-filter) saturate(1.9) brightness(1.1);
   backdrop-filter: url(#jdx-liquid-filter) saturate(1.9) brightness(1.1);
 }
+
+/* =====================================================================
+   Fenster-Buttons (Titelleiste ausgeblendet)
+   ===================================================================== */
+
+.jdx-winctl { display: inline-flex; align-items: center; gap: 2px; margin-left: 10px; flex: 0 0 auto; }
+.jdx-winctl button {
+  all: unset;
+  box-sizing: border-box;
+  width: 42px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: inherit;
+  cursor: default;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.jdx-winctl button svg { width: 11px; height: 11px; }
+.jdx-winctl button:hover { background: rgba(var(--jdx-text-rgb), 0.12); }
+.jdx-winctl button:active { background: rgba(var(--jdx-text-rgb), 0.2); }
+.jdx-winctl .jdx-win-close:hover { background: #c42b1c; color: #fff; }
+.jdx-winctl .jdx-win-close:active { background: #a12619; color: #fff; }
+html.jdx.jdx-liquid .jdx-winctl button { border-radius: 999px; }
+/* im Player-Kopf eine eigene Insel */
+html.jdx.jdx-player .osdHeader .jdx-winctl { margin-left: auto; color: var(--jdx-text); }
+html.jdx.jdx-player.jdx-islands-on .osdHeader .jdx-winctl.jdx-island-start { margin-left: auto !important; }
+html.jdx.jdx-player .osdHeader .jdx-winctl button { height: 34px; }
+
+#jdx-winctl-float {
+  position: fixed;
+  top: 6px;
+  right: 8px;
+  z-index: 100001;
+  padding: 3px;
+  border-radius: 12px;
+  color: var(--jdx-text);
+  background: rgba(var(--jdx-surface-rgb), 0.7);
+  border: 1px solid rgba(var(--jdx-text-rgb), 0.1);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+#jdx-winctl-float .jdx-winctl { margin-left: 0; }
+
+/* oberer Rand zum Ändern der Größe (links/rechts/unten übernimmt Windows) */
+.jdx-resize { position: fixed; z-index: 100002; }
+.jdx-resize-top { top: 0; left: 10px; right: 10px; height: 4px; cursor: ns-resize; }
+.jdx-resize-tl { top: 0; left: 0; width: 10px; height: 10px; cursor: nwse-resize; }
+.jdx-resize-tr { top: 0; right: 0; width: 10px; height: 10px; cursor: nesw-resize; }
+html.jdx-window-maximized .jdx-resize { display: none; }
 
 /* =====================================================================
    Updates

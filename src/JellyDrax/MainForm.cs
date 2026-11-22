@@ -197,6 +197,8 @@ public sealed class MainForm : Form
         ShowPage(new
         {
             mode = "error",
+            frameless = _settings.Frameless,
+            maximized = WindowState == FormWindowState.Maximized,
             server = _settings.ServerUrl,
             message = DescribeError(status),
             status = status.ToString(),
@@ -269,7 +271,7 @@ public sealed class MainForm : Form
         var version = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "?";
         var bootstrap = new StringBuilder()
             .Append("window.__JDX_VERSION__=").Append(JsonSerializer.Serialize(version)).Append(';')
-            .Append("window.__JDX_FEATURES__={\"updates\":true};")
+            .Append("window.__JDX_FEATURES__={\"updates\":true,\"frameless\":true};")
             .Append("window.__JDX_CSS__=").Append(JsonSerializer.Serialize(_clientCss)).Append(';')
             .Append("window.__JDX_SETTINGS__=").Append(_settings.Client?.ToJsonString() ?? "null").Append(";\n")
             .Append(_clientJs)
@@ -543,6 +545,8 @@ public sealed class MainForm : Form
         ShowPage(new
         {
             mode = "connect",
+            frameless = _settings.Frameless,
+            maximized = WindowState == FormWindowState.Maximized,
             server = prefill ?? _settings.ServerUrl ?? "",
             recent = _settings.RecentServers,
             autoConnect,
@@ -561,6 +565,9 @@ public sealed class MainForm : Form
                 var msg = JsonNode.Parse(e.WebMessageAsJson);
                 switch ((string?)msg?["jdx"])
                 {
+                    case "win":
+                        HandleWindowMessage(msg!);
+                        break;
                     case "save":
                         await SaveClientSettingsAsync(msg!["settings"]?.DeepClone());
                         break;
@@ -601,6 +608,11 @@ public sealed class MainForm : Form
         {
             using var doc = JsonDocument.Parse(e.WebMessageAsJson);
             var root = doc.RootElement;
+            if (root.TryGetProperty("jdx", out var jdx) && jdx.GetString() == "win")
+            {
+                HandleWindowMessage(JsonNode.Parse(e.WebMessageAsJson)!);
+                return;
+            }
             var type = root.GetProperty("type").GetString();
             switch (type)
             {
@@ -714,6 +726,138 @@ public sealed class MainForm : Form
             WindowState = _restoreState == FormWindowState.Minimized ? FormWindowState.Normal : _restoreState;
         }
         ResumeLayout();
+        PostWinState();
+    }
+
+    // ------------------------------------------- Fenster ohne Titelleiste
+    // Die Titelleiste wird über WM_NCCALCSIZE entfernt (wie bei Windows Terminal/Edge): Schatten,
+    // abgerundete Ecken, Größenänderung links/rechts/unten, Andocken und Animationen bleiben erhalten.
+    // Verschieben, Größe oben, Doppelklick und Fenstermenü meldet die Oberfläche (jdx: "win").
+
+    private const int WM_NCCALCSIZE = 0x0083, WM_NCLBUTTONDOWN = 0x00A1;
+    private const int HTCAPTION = 2, HTTOP = 12, HTTOPLEFT = 13, HTTOPRIGHT = 14;
+    private const int SC_SIZE = 0xF000, SC_MOVE = 0xF010, SC_MINIMIZE = 0xF020, SC_MAXIMIZE = 0xF030, SC_RESTORE = 0xF120;
+    private const uint MF_BYCOMMAND = 0x0000, MF_ENABLED = 0x0000, MF_GRAYED = 0x0001;
+    private const uint TPM_RETURNCMD = 0x0100, TPM_RIGHTBUTTON = 0x0002;
+    private const uint SWP_NOSIZE = 0x0001, SWP_NOMOVE = 0x0002, SWP_NOZORDER = 0x0004, SWP_NOACTIVATE = 0x0010, SWP_FRAMECHANGED = 0x0020;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct RECT { public int Left, Top, Right, Bottom; }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NCCALCSIZE_PARAMS { public RECT Rgrc0, Rgrc1, Rgrc2; public IntPtr LpPos; }
+
+    [DllImport("user32.dll")] private static extern bool ReleaseCapture();
+    [DllImport("user32.dll")] private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+    [DllImport("user32.dll")] private static extern bool PostMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+    [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr hWnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
+    [DllImport("user32.dll")] private static extern bool IsZoomed(IntPtr hWnd);
+    [DllImport("user32.dll")] private static extern uint GetDpiForWindow(IntPtr hWnd);
+    [DllImport("user32.dll")] private static extern int GetSystemMetricsForDpi(int index, uint dpi);
+    [DllImport("user32.dll")] private static extern int TrackPopupMenuEx(IntPtr menu, uint flags, int x, int y, IntPtr hWnd, IntPtr tpm);
+    [DllImport("user32.dll")] private static extern bool EnableMenuItem(IntPtr menu, uint id, uint enable);
+    [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    private bool CustomFrameActive => _settings.Frameless && !_fullscreen && FormBorderStyle == FormBorderStyle.Sizable;
+
+    private int ResizeBorderHeight()
+    {
+        var dpi = GetDpiForWindow(Handle);
+        if (dpi == 0) dpi = 96;
+        return GetSystemMetricsForDpi(33 /* SM_CYSIZEFRAME */, dpi) + GetSystemMetricsForDpi(92 /* SM_CXPADDEDBORDER */, dpi);
+    }
+
+    private void ApplyFrame()
+    {
+        if (IsHandleCreated)
+            SetWindowPos(Handle, IntPtr.Zero, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+    }
+
+    private void SetFrameless(bool on)
+    {
+        _settings.Frameless = on;
+        _settings.Save();
+        ApplyFrame();
+        if (_onLocalPage) ShowConnectPage(); else PostWinState();
+    }
+
+    private bool _lastPostedMax;
+
+    private void PostWinState()
+    {
+        if (_core == null) return;
+        _lastPostedMax = WindowState == FormWindowState.Maximized && !_fullscreen;
+        _core.PostWebMessageAsJson(JsonSerializer.Serialize(new
+        {
+            jdx = "win-state",
+            frameless = _settings.Frameless,
+            maximized = _lastPostedMax,
+            fullscreen = _fullscreen,
+        }));
+    }
+
+    protected override void OnResize(EventArgs e)
+    {
+        base.OnResize(e);
+        var max = WindowState == FormWindowState.Maximized && !_fullscreen;
+        if (max != _lastPostedMax) PostWinState();
+    }
+
+    private void BeginNonClientAction(int hit)
+    {
+        ReleaseCapture();
+        SendMessage(Handle, WM_NCLBUTTONDOWN, (IntPtr)hit, IntPtr.Zero);
+    }
+
+    private void ShowWindowMenu()
+    {
+        var menu = GetSystemMenu(Handle, false);
+        var maximized = WindowState == FormWindowState.Maximized;
+        EnableMenuItem(menu, SC_RESTORE, MF_BYCOMMAND | (maximized ? MF_ENABLED : MF_GRAYED));
+        EnableMenuItem(menu, SC_MAXIMIZE, MF_BYCOMMAND | (maximized ? MF_GRAYED : MF_ENABLED));
+        EnableMenuItem(menu, SC_MOVE, MF_BYCOMMAND | (maximized ? MF_GRAYED : MF_ENABLED));
+        EnableMenuItem(menu, SC_SIZE, MF_BYCOMMAND | (maximized ? MF_GRAYED : MF_ENABLED));
+        EnableMenuItem(menu, SC_MINIMIZE, MF_BYCOMMAND | MF_ENABLED);
+        SetForegroundWindow(Handle);
+        var p = Cursor.Position;
+        var cmd = TrackPopupMenuEx(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON, p.X, p.Y, Handle, IntPtr.Zero);
+        if (cmd != 0) PostMessage(Handle, WM_SYSCOMMAND, (IntPtr)cmd, IntPtr.Zero);
+    }
+
+    private void HandleWindowMessage(JsonNode msg)
+    {
+        switch ((string?)msg["action"])
+        {
+            case "get":
+                PostWinState();
+                break;
+            case "minimize":
+                WindowState = FormWindowState.Minimized;
+                break;
+            case "maximize":
+                if (_fullscreen) ToggleFullscreen();
+                else WindowState = WindowState == FormWindowState.Maximized ? FormWindowState.Normal : FormWindowState.Maximized;
+                break;
+            case "close":
+                Close();
+                break;
+            case "drag":
+                if (!_fullscreen) BeginNonClientAction(HTCAPTION);
+                break;
+            case "resize":
+                if (!_fullscreen && WindowState == FormWindowState.Normal)
+                {
+                    var hit = (string?)msg["edge"] switch { "topleft" => HTTOPLEFT, "topright" => HTTOPRIGHT, _ => HTTOP };
+                    BeginNonClientAction(hit);
+                }
+                break;
+            case "menu":
+                ShowWindowMenu();
+                break;
+            case "set-frameless":
+                if (msg["value"] is JsonValue v && v.TryGetValue<bool>(out var on)) SetFrameless(on);
+                break;
+        }
     }
 
     // ---------------------------------------------------------- Tastenkürzel
@@ -772,7 +916,7 @@ public sealed class MainForm : Form
     private const int WM_SYSCOMMAND = 0x0112;
     private const uint MF_STRING = 0x0000, MF_SEPARATOR = 0x0800;
     private const int CmdChangeServer = 0x0100, CmdReload = 0x0110, CmdClearCache = 0x0120,
-        CmdFullscreen = 0x0130, CmdDevTools = 0x0140, CmdAbout = 0x0150, CmdDesign = 0x0160, CmdUpdate = 0x0170;
+        CmdFullscreen = 0x0130, CmdDevTools = 0x0140, CmdAbout = 0x0150, CmdDesign = 0x0160, CmdUpdate = 0x0170, CmdFrame = 0x0180;
 
     [DllImport("user32.dll")]
     private static extern IntPtr GetSystemMenu(IntPtr hWnd, bool bRevert);
@@ -791,6 +935,8 @@ public sealed class MainForm : Form
         var dark = 1;
         DwmSetWindowAttribute(Handle, 20, ref dark, sizeof(int));
 
+        ApplyFrame();
+
         var menu = GetSystemMenu(Handle, false);
         AppendMenu(menu, MF_SEPARATOR, UIntPtr.Zero, null);
         AppendMenu(menu, MF_STRING, (UIntPtr)CmdDesign, "JellyDrax-Design…\tStrg+,");
@@ -798,6 +944,7 @@ public sealed class MainForm : Form
         AppendMenu(menu, MF_STRING, (UIntPtr)CmdReload, "Neu laden\tF5");
         AppendMenu(menu, MF_STRING, (UIntPtr)CmdClearCache, "Cache leeren und neu laden");
         AppendMenu(menu, MF_STRING, (UIntPtr)CmdFullscreen, "Vollbild\tF11");
+        AppendMenu(menu, MF_STRING, (UIntPtr)CmdFrame, "Titelleiste ein-/ausblenden");
         AppendMenu(menu, MF_STRING, (UIntPtr)CmdDevTools, "Entwicklertools\tF12");
         AppendMenu(menu, MF_SEPARATOR, UIntPtr.Zero, null);
         AppendMenu(menu, MF_STRING, (UIntPtr)CmdUpdate, "Nach Updates suchen …");
@@ -806,6 +953,17 @@ public sealed class MainForm : Form
 
     protected override void WndProc(ref Message m)
     {
+        if (m.Msg == WM_NCCALCSIZE && m.WParam != IntPtr.Zero && CustomFrameActive)
+        {
+            var before = Marshal.PtrToStructure<NCCALCSIZE_PARAMS>(m.LParam);
+            base.WndProc(ref m); // Windows berechnet Rahmen links/rechts/unten
+            var after = Marshal.PtrToStructure<NCCALCSIZE_PARAMS>(m.LParam);
+            // Titelbereich entfernen; maximiert ragt das Fenster um die Rahmenbreite über den Bildschirm
+            after.Rgrc0.Top = before.Rgrc0.Top + (IsZoomed(Handle) ? ResizeBorderHeight() : 0);
+            Marshal.StructureToPtr(after, m.LParam, false);
+            m.Result = IntPtr.Zero;
+            return;
+        }
         if (m.Msg == WM_SYSCOMMAND)
         {
             switch ((int)(m.WParam.ToInt64() & 0xFFF0))
@@ -818,6 +976,7 @@ public sealed class MainForm : Form
                 case CmdAbout: ShowAbout(); return;
                 case CmdDesign: ToggleClientSettings(); return;
                 case CmdUpdate: _ = CheckUpdatesFromMenuAsync(); return;
+                case CmdFrame: SetFrameless(!_settings.Frameless); return;
             }
         }
         base.WndProc(ref m);

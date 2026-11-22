@@ -13,6 +13,8 @@ public sealed class AppSettings
     public int[]? WindowBounds { get; set; }
     public bool Maximized { get; set; }
     public double Zoom { get; set; } = 1.0;
+    /// <summary>Windows-Titelleiste ausblenden; Fenster-Buttons sitzen dann in der Oberfläche.</summary>
+    public bool Frameless { get; set; } = true;
     /// <summary>Beim Start automatisch nach Updates suchen.</summary>
     public bool AutoUpdateCheck { get; set; } = true;
     public DateTime? LastUpdateCheck { get; set; }

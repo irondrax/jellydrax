@@ -56,11 +56,29 @@
   @keyframes spin { to { transform: rotate(360deg); } }
   .hidden { display: none !important; }
   h2.title { margin: 0 0 8px; font-size: 20px; }
+  /* Fensterleiste, wenn die Windows-Titelleiste ausgeblendet ist */
+  .titlebar { position: fixed; top: 0; left: 0; right: 0; height: 40px; display: none; align-items: center; justify-content: flex-end; padding: 0 6px; z-index: 10; }
+  .frameless .titlebar { display: flex; }
+  .winctl { display: flex; gap: 2px; }
+  .winctl button { width: 42px; height: 30px; padding: 0; border-radius: 8px; background: transparent; display: inline-flex; align-items: center; justify-content: center; color: var(--text); cursor: default; }
+  .winctl button:hover { background: rgba(255,255,255,.12); }
+  .winctl .w-close:hover { background: #c42b1c; color: #fff; }
+  .winctl svg { width: 11px; height: 11px; }
+  .resize-top { position: fixed; top: 0; left: 10px; right: 10px; height: 4px; cursor: ns-resize; z-index: 11; display: none; }
+  .frameless:not(.maximized) .resize-top { display: block; }
   p.detail { color: var(--muted); margin: 0 0 20px; word-break: break-all; }
   code { color: var(--text); }
 </style>
 </head>
 <body>
+<div class="titlebar" id="titlebar">
+  <div class="winctl">
+    <button class="w-min" type="button" title="Minimieren" data-act="minimize"><svg viewBox="0 0 10 10"><path d="M0 5h10" stroke="currentColor" fill="none"/></svg></button>
+    <button class="w-max" type="button" title="Maximieren" data-act="maximize"><svg viewBox="0 0 10 10"><rect x=".5" y=".5" width="9" height="9" rx="1.5" stroke="currentColor" fill="none"/></svg></button>
+    <button class="w-close" type="button" title="Schließen" data-act="close"><svg viewBox="0 0 10 10"><path d="M.6.6l8.8 8.8M9.4.6L.6 9.4" stroke="currentColor" fill="none"/></svg></button>
+  </div>
+</div>
+<div class="resize-top" id="resizeTop"></div>
 <main class="card">
   <div class="logo">
     <svg width="44" height="44" viewBox="0 0 64 64" aria-hidden="true">
@@ -111,6 +129,24 @@
 (function () {
   const S = window.__STATE__ || { mode: "connect", recent: [] };
   const $ = (id) => document.getElementById(id);
+
+  // Fenster ohne Titelleiste: Buttons, Verschieben (Doppelklick = maximieren), Größe oben
+  document.body.classList.toggle("frameless", !!S.frameless);
+  document.body.classList.toggle("maximized", !!S.maximized);
+  if (S.frameless) {
+    document.querySelectorAll(".winctl button").forEach(function (b) {
+      b.addEventListener("click", function () { post({ jdx: "win", action: b.dataset.act }); });
+    });
+    let last = 0;
+    $("titlebar").addEventListener("mousedown", function (e) {
+      if (e.button !== 0 || e.target.closest("button")) return;
+      e.preventDefault();
+      const dbl = Date.now() - last < 450; last = dbl ? 0 : Date.now();
+      post({ jdx: "win", action: dbl ? "maximize" : "drag" });
+    });
+    $("titlebar").addEventListener("contextmenu", function (e) { e.preventDefault(); post({ jdx: "win", action: "menu" }); });
+    $("resizeTop").addEventListener("mousedown", function (e) { if (e.button === 0) { e.preventDefault(); post({ jdx: "win", action: "resize", edge: "top" }); } });
+  }
   // WebView2 (Windows) oder Electron-Preload (Linux)
   const HOST = (window.chrome && window.chrome.webview) || window.jdxHost || null;
   const post = (m) => HOST && HOST.postMessage(m);
@@ -163,6 +199,11 @@
   if (HOST) {
     HOST.addEventListener("message", function (ev) {
       const m = ev.data || {};
+      if (m.jdx === "win-state") {
+        document.body.classList.toggle("frameless", !!m.frameless);
+        document.body.classList.toggle("maximized", !!m.maximized);
+        return;
+      }
       if (m.type !== "connectResult") return;
       if (m.ok) { setMsg("Verbunden: " + m.name + " (Jellyfin " + m.version + ")", "ok"); }
       else { setBusy(false); setMsg(m.error || "Verbindung fehlgeschlagen.", "error"); $("url").focus(); }
