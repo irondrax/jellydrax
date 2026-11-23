@@ -109,7 +109,9 @@
     reduceMotion: false,
     player: {
       theme: true,
-      islands: true,
+      size: 'compact',
+      centerControls: true,
+      episodePanel: true,
       hideTopActions: true
     },
     ratings: {
@@ -331,7 +333,8 @@
     r.classList.toggle('jdx-reduce-motion', !!S.reduceMotion);
     r.classList.toggle('jdx-noscrollbar', !!S.hideScrollbar);
     r.classList.toggle('jdx-player', !!S.player.theme);
-    r.classList.toggle('jdx-islands-on', !!(S.player.theme && S.player.islands));
+    r.classList.toggle('jdx-player-compact', S.player.size === 'compact');
+    r.classList.toggle('jdx-epanel', !!(S.player.theme && S.player.episodePanel));
     r.classList.toggle('jdx-hide-osd-actions', !!S.player.hideTopActions);
     r.classList.toggle('jdx-own-ratings', !!(S.ratings.onDetails && S.ratings.hideJellyfinRatings));
     r.style.setProperty('--jdx-rating-scale', String(S.ratings.size || 1));
@@ -595,151 +598,65 @@
     }
   }
 
-  // ======================================================== Player-Inseln
-  // Zusammengehörende Buttons bekommen eine gemeinsame Glasfläche. Die Buttons selbst bleiben,
-  // wo Jellyfin sie hinsetzt (Plugins fügen ihre Buttons relativ zu diesen ein); die Flächen
-  // liegen in einer eigenen Ebene dahinter. Unbekannte Buttons (z. B. von Plugins) bilden eine eigene Insel.
+  // ======================================================== Player-Steuerleiste
+  // Die Buttons bleiben, wo Jellyfin sie hinsetzt (Plugins fügen ihre Buttons relativ zu diesen ein).
+  // Nur per CSS: Medien-Buttons (Wiedergabe, Spulen, Titel) mittig, Endzeit links, übrige Buttons rechts.
+  // Würde die Mitte mit den Buttons links/rechts kollidieren (schmales Fenster, viele Plugin-Buttons),
+  // fällt die Leiste automatisch auf die normale Anordnung zurück.
 
-  var ISLAND_SETS = [
-    {
-      container: '.videoOsdBottom .buttons',
-      groups: [
-        ['transport', function (c) { return !!c.querySelector('.btnPause, .btnRewind, .btnFastForward'); }],
-        ['time', '.osdTimeText'],
-        ['media', '.btnUserRating, .btnSubtitles, .btnAudio'],
-        ['volume', '.volumeButtons'],
-        ['view', '.btnVideoOsdSettings, .btnAirPlay, .btnPip, .btnFullscreen']
-      ]
-    },
-    {
-      container: '.osdHeader .videoOsd-appBar',
-      groups: [
-        ['window', '.jdx-winctl'],
-        ['nav', function (c) { return c.matches('.MuiIconButton-root, .MuiTypography-root, h1, h2, h3, h4, h5, h6, p, span'); }],
-        ['actions', function (c) { return !!c.querySelector('button, a'); }]
-      ]
-    },
-    { container: '.osdHeader .headerTop', groups: [['window', '.jdx-winctl'], ['left', '.headerLeft'], ['right', '.headerRight']] }
-  ];
+  var playerWatch = typeof WeakMap === 'function' ? new WeakMap() : null;
+  var playerFrame = 0;
 
-  var islandWatch = typeof WeakMap === 'function' ? new WeakMap() : null;
-  var islandFrame = 0;
-
-  function visibleRect(n) {
-    if (!n.getClientRects().length) return null;
+  function visibleBox(n) {
+    if (!n || !n.getClientRects().length) return null;
     var r = n.getBoundingClientRect();
-    return r.width > 1 && r.height > 1 ? r : null;
+    return r.width > 0 ? r : null;
   }
 
-  // Fläche des sichtbaren Inhalts (bei Containern: Vereinigung der sichtbaren Kinder)
-  // Fläche des sichtbaren Texts (Jellyfin setzt z. B. vor "Endet um" geschützte Leerzeichen)
-  function textRect(n) {
-    var tn = n.firstChild;
-    if (!tn || tn.nodeType !== 3 || n.childNodes.length !== 1) return null;
-    var t = tn.textContent, a = t.search(/\S/), b = t.length - (t.match(/\s*$/)[0] || '').length;
-    if (a < 0 || (a === 0 && b === t.length)) return null;
-    var range = document.createRange();
-    range.setStart(tn, a); range.setEnd(tn, b);
-    var r = range.getBoundingClientRect();
-    return r.width > 1 ? r : null;
-  }
+  function updatePlayerLayout() {
+    playerFrame = 0;
+    var root = document.documentElement;
+    var bar = document.querySelector('.videoOsdBottom .buttons');
+    if (!bar || !S.player.theme) { root.classList.remove('jdx-pcenter-off'); return; }
 
-  function contentRect(n) {
-    if (n.tagName !== 'BUTTON' && n.tagName !== 'A' && !n.children.length) return textRect(n) || visibleRect(n);
-    if (n.tagName === 'BUTTON' || n.tagName === 'A') return visibleRect(n);
-    // Schieberegler als Ganzes – ihre Wert-Blase ("23") und Kapitel-Vorschau schweben darüber
-    if (n.classList.contains('sliderContainer')) return visibleRect(n);
-    var u = null;
-    Array.prototype.forEach.call(n.children, function (c) {
-      if (c.classList.contains('jdx-islands') || /^(absolute|fixed)$/.test(getComputedStyle(c).position)) return;
-      var r = contentRect(c);
-      if (!r) return;
-      u = u ? { left: Math.min(u.left, r.left), top: Math.min(u.top, r.top), right: Math.max(u.right, r.right), bottom: Math.max(u.bottom, r.bottom) } : { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
-    });
-    return u;
-  }
+    // Platz für Plugin-Fenster (Episodenliste): Abstand der Steuerleiste zum unteren Rand
+    var controls = bar.closest('.osdControls');
+    var cr = controls && controls.getBoundingClientRect();
+    if (cr && cr.height > 0) root.style.setProperty('--jdx-osd-room', Math.max(0, Math.round(window.innerHeight - cr.top)) + 'px');
 
-  function islandKey(set, c) {
-    for (var i = 0; i < set.groups.length; i++) {
-      var g = set.groups[i], m = g[1];
-      if (typeof m === 'string' ? c.matches(m) : m(c)) return g[0];
-    }
-    return 'extra';
-  }
-
-  function layoutIslands(set, box) {
-    var parent = box.parentNode;
-    if (!parent) return;
-    var layer = null;
-    Array.prototype.some.call(parent.children, function (c) { if (c.classList.contains('jdx-islands')) { layer = c; return true; } return false; });
-    if (!layer) {
-      layer = el('div', { class: 'jdx-islands', 'aria-hidden': 'true' });
-      parent.insertBefore(layer, box);
-    }
-    if (getComputedStyle(parent).position === 'static') parent.style.position = 'relative';
-
-    var runs = [], last = null;
-    Array.prototype.forEach.call(box.children, function (c) {
-      var r = contentRect(c);
-      if (!r) { c.classList.remove('jdx-island-start'); return; }
-      var key = islandKey(set, c);
-      if (last && last.key === key) {
-        last.r = { left: Math.min(last.r.left, r.left), top: Math.min(last.r.top, r.top), right: Math.max(last.r.right, r.right), bottom: Math.max(last.r.bottom, r.bottom) };
-        c.classList.remove('jdx-island-start');
-      } else {
-        // Abstand zwischen den Inseln (erste Insel ohne)
-        c.classList.toggle('jdx-island-start', runs.length > 0);
-        last = { key: key, r: { left: r.left, top: r.top, right: r.right, bottom: r.bottom } };
-        runs.push(last);
+    var off = !S.player.centerControls;
+    if (!off) {
+      var transport = null;
+      Array.prototype.some.call(bar.children, function (c) { if (c.tagName === 'DIV' && c.getAttribute('dir') === 'ltr') { transport = c; return true; } return false; });
+      var br = bar.getBoundingClientRect();
+      var tw = transport ? transport.offsetWidth : 0;
+      if (transport && tw && br.width) {
+        var center = br.left + br.width / 2, gap = 16;
+        var timeText = bar.querySelector('.osdTimeText');
+        var leftEdge = br.left + (timeText && timeText.offsetWidth ? timeText.offsetWidth + 24 : 0);
+        var rightEdge = br.right;
+        Array.prototype.some.call(bar.children, function (c) {
+          if (c === transport || c === timeText) return false;
+          var r = visibleBox(c);
+          if (!r) return false;
+          rightEdge = r.left;   // erster sichtbarer Button der rechten Gruppe
+          return true;
+        });
+        off = center - tw / 2 - gap < leftEdge || center + tw / 2 + gap > rightEdge;
       }
-    });
-
-    // Inseln einer Zeile bekommen dieselbe Höhe
-    runs.forEach(function (a) {
-      var cy = (a.r.top + a.r.bottom) / 2;
-      runs.forEach(function (b) {
-        if (Math.abs((b.r.top + b.r.bottom) / 2 - cy) < 24) { a.top = Math.min(a.top || a.r.top, b.r.top); a.bottom = Math.max(a.bottom || a.r.bottom, b.r.bottom); }
-      });
-    });
-
-    var pr = parent.getBoundingClientRect();
-    while (layer.children.length > runs.length) layer.lastChild.remove();
-    while (layer.children.length < runs.length) layer.appendChild(el('div', { class: 'jdx-island' }));
-    runs.forEach(function (run, i) {
-      var padX = run.key === 'time' ? 16 : 4, padY = 4;
-      var n = layer.children[i];
-      n.style.left = Math.round(run.r.left - pr.left - padX) + 'px';
-      n.style.top = Math.round(run.top - pr.top - padY) + 'px';
-      n.style.width = Math.round(run.r.right - run.r.left + padX * 2) + 'px';
-      n.style.height = Math.round(run.bottom - run.top + padY * 2) + 'px';
-    });
-  }
-
-  function updateIslands() {
-    islandFrame = 0;
-    var on = S.player.theme && S.player.islands;
-    if (!on) {
-      document.querySelectorAll('.jdx-islands').forEach(function (n) { n.remove(); });
-      document.querySelectorAll('.jdx-island-start').forEach(function (n) { n.classList.remove('jdx-island-start'); });
-      return;
     }
-    ISLAND_SETS.forEach(function (set) {
-      document.querySelectorAll(set.container).forEach(function (box) {
-        if (!visibleRect(box)) return;
-        layoutIslands(set, box);
-        // bei Änderungen (Buttons ein-/ausgeblendet, Größe) neu berechnen
-        if (islandWatch && !islandWatch.has(box)) {
-          var mo = new MutationObserver(scheduleIslands);
-          mo.observe(box, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class', 'style', 'hidden'] });
-          var ro = window.ResizeObserver ? new ResizeObserver(scheduleIslands) : null;
-          if (ro) ro.observe(box);
-          islandWatch.set(box, true);
-        }
-      });
-    });
+    if (root.classList.contains('jdx-pcenter-off') !== off) root.classList.toggle('jdx-pcenter-off', off);
+
+    if (playerWatch && !playerWatch.has(bar)) {
+      var mo = new MutationObserver(schedulePlayerLayout);
+      mo.observe(bar, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style', 'hidden'] });
+      if (window.ResizeObserver) new ResizeObserver(schedulePlayerLayout).observe(bar);
+      playerWatch.set(bar, true);
+    }
   }
 
-  function scheduleIslands() { if (!islandFrame) islandFrame = requestAnimationFrame(updateIslands); }
+  function schedulePlayerLayout() { if (!playerFrame) playerFrame = requestAnimationFrame(updatePlayerLayout); }
+  window.addEventListener('resize', schedulePlayerLayout);
 
   // ======================================================== Fenster ohne Titelleiste (Windows-App)
   // Minimieren/Maximieren/Schließen sitzen in der Kopfleiste (bzw. im Player-Kopf). Verschieben über
@@ -843,7 +760,7 @@
     WIN.fullscreen = !!m.fullscreen;
     ensureWindowControls();
     updateWinIcons();
-    scheduleIslands();
+    schedulePlayerLayout();
     if (activeTab === 'advanced' && document.getElementById('jdx-settings')) renderTab();
   }
 
@@ -1334,7 +1251,7 @@
       prevSlide.classList.add('is-leaving');
       prevSlide.classList.remove('has-video');
       clearTimeout(prevSlide._leaveTimer);
-      prevSlide._leaveTimer = setTimeout(function () { prevSlide.classList.remove('is-leaving'); }, (S.mediaBar.transition || 1.2) * 1600 + 150);
+      prevSlide._leaveTimer = setTimeout(function () { prevSlide.classList.remove('is-leaving'); }, (S.mediaBar.transition || 1.2) * 1400 + 100);
     }
     var cur = all[i];
     var n = all.length;
@@ -1647,7 +1564,7 @@
   function changed(path) {
     save();
     applyAll();
-    if (path.indexOf('player.') === 0) scheduleIslands();
+    if (path.indexOf('player.') === 0) schedulePlayerLayout();
     if (path.indexOf('genres.') === 0) {
       if (path === 'genres.types') { S.genres.selected = null; refreshGenres(true); }
       else { var t = homeTab(); var b = document.getElementById('jdx-genres'); if (b) b.remove(); if (S.genres.enabled && t && GENRES.list) renderGenres(t); else refreshGenres(true); }
@@ -1910,7 +1827,9 @@
     } else if (activeTab === 'player') {
       add(row('Player im JellyDrax-Design', 'Farben, Fortschrittsbalken und Buttons des Videoplayers passend zum Theme. Funktionen und Player-Plugins bleiben unverändert.', toggleCtl('player.theme')));
       add(row('SyncPlay und Cast oben im Player ausblenden', 'Die beiden Symbole oben rechts im Player', toggleCtl('player.hideTopActions')));
-      add(row('Buttons als Inseln gruppieren', 'Zusammengehörende Buttons erhalten eine gemeinsame Glasfläche: Wiedergabe · Endzeit · Favorit/Untertitel/Audio · Lautstärke · Einstellungen/Vollbild (oben: Zurück/Titel · SyncPlay/Cast). Buttons von Plugins bekommen eine eigene Insel.', toggleCtl('player.islands')));
+      add(row('Größe der Steuerleiste', 'Kompakt nimmt weniger vom Bild ein: kleinere Buttons, schmalere Leiste', selectCtl('player.size', [['compact', 'Kompakt'], ['normal', 'Normal']])));
+      add(row('Medien-Buttons mittig', 'Wiedergabe, Spulen und Titelwechsel in der Mitte der Leiste; bei zu wenig Platz (schmales Fenster, viele Plugin-Buttons) automatisch wie bisher links', toggleCtl('player.centerControls')));
+      add(row('Episodenliste (Plugin) anpassen', 'Das Fenster des Plugins „In-Player Episode Preview“ als Panel rechts im Player, im Design des Themes', toggleCtl('player.episodePanel')));
     } else if (activeTab === 'updates') {
       renderUpdatesTab(add);
     } else if (activeTab === 'ratings') {
@@ -2136,7 +2055,7 @@
     refreshMediaBar(false);
     refreshGenres(false);
     ensureDetailRatings();
-    if (S.player.theme && S.player.islands && document.querySelector('.videoOsdBottom, .osdHeader')) scheduleIslands();
+    if (S.player.theme && document.querySelector('.videoOsdBottom .buttons')) schedulePlayerLayout();
     if (!updateAsked && FEATURES.updates) { updateAsked = true; hostPost({ jdx: 'update-get' }); }
     if (FEATURES.frameless) {
       if (!winAsked) { winAsked = true; hostPost({ jdx: 'win', action: 'get' }); }

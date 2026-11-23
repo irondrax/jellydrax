@@ -692,22 +692,12 @@ html.jdx.jdx-player .osdHeader .headerButton {
 html.jdx.jdx-player .videoOsdBottom .buttons .paper-icon-button-light:not(.btnPause):hover,
 html.jdx.jdx-player .osdHeader .MuiIconButton-root:hover,
 html.jdx.jdx-player .osdHeader .headerButton:hover { background: rgba(var(--jdx-text-rgb), 0.14); }
-html.jdx.jdx-player.jdx-islands-on .videoOsdBottom .buttons .paper-icon-button-light {
-  height: 2.5em;
-  min-width: 2.9em;
-  padding: 0 0.55em;
-  margin: 0 1px;
-  border-radius: 999px;
-}
-html.jdx.jdx-player.jdx-islands-on .videoOsdBottom .buttons .paper-icon-button-light .material-icons { font-size: 1.5em !important; }
-html.jdx.jdx-player.jdx-islands-on .osdHeader .videoOsd-appBar .MuiIconButton-root { border-radius: 999px; padding: 6px 10px; }
 html.jdx.jdx-player .videoOsdBottom .buttons .btnPause {
   background: linear-gradient(135deg, var(--jdx-accent), var(--jdx-accent2)) !important;
   color: var(--jdx-on-accent) !important;
   box-shadow: 0 8px 20px -8px rgba(var(--jdx-accent-rgb), 0.95);
   margin: 0 0.3em;
 }
-html.jdx.jdx-player.jdx-islands-on .videoOsdBottom .buttons .btnPause { margin: 0 2px; box-shadow: 0 6px 16px -8px rgba(var(--jdx-accent-rgb), 0.95); }
 html.jdx.jdx-player .videoOsdBottom .buttons .btnPause:hover { transform: scale(1.07); }
 html.jdx.jdx-player .videoOsdBottom .osdTimeText { color: var(--jdx-muted); font-weight: 600; font-variant-numeric: tabular-nums; }
 
@@ -721,39 +711,130 @@ html.jdx.jdx-hide-osd-actions .osdHeader .videoOsd-appBar > .MuiBox-root:not(.jd
 html.jdx.jdx-hide-osd-actions .osdHeader .headerSyncButton,
 html.jdx.jdx-hide-osd-actions .osdHeader .headerCastButton { display: none !important; }
 
-/* Inseln: Glasflächen hinter zusammengehörenden Buttons (von jellydrax.js berechnet) */
-html.jdx.jdx-player .videoOsdBottom .osdControls { position: relative; }
-html.jdx.jdx-player.jdx-islands-on .videoOsdBottom .buttons,
-html.jdx.jdx-player.jdx-islands-on .osdHeader .videoOsd-appBar,
-html.jdx.jdx-player.jdx-islands-on .osdHeader .headerTop { position: relative; z-index: 1; }
-html.jdx.jdx-player.jdx-islands-on .jdx-island-start { margin-left: 1.3em !important; }
-html.jdx.jdx-player.jdx-islands-on .videoOsdBottom .osdTimeText { padding: 0 0.6em; }
-html.jdx.jdx-player.jdx-islands-on .videoOsdBottom .volumeButtons { margin-right: 0; }
-html.jdx.jdx-player.jdx-islands-on .videoOsdBottom .buttons { padding-top: 0.5em; padding-bottom: 0.2em; }
-
-.jdx-islands { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
-.jdx-island {
-  /* in jedem Theme Glas: halbtransparent, unscharf, mit Lichtkante */
-  position: absolute;
-  border-radius: 999px;
-  background: rgba(var(--jdx-bg-rgb), 0.28);
-  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.03));
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  box-shadow: 0 10px 28px -14px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.18);
-  -webkit-backdrop-filter: blur(20px) saturate(1.6);
-  backdrop-filter: blur(20px) saturate(1.6);
+/* ---- Anordnung der Steuerleiste: Endzeit links · Medien-Buttons mittig · übrige Buttons rechts ---- */
+html.jdx.jdx-player .videoOsdBottom .buttons {
+  position: relative;
+  flex-wrap: nowrap;
+  min-height: 2.6em;
 }
-html.jdx.jdx-liquid .jdx-island {
+html.jdx.jdx-player .videoOsdBottom .buttons > .osdTimeText { margin-left: 0.4em; margin-right: auto; white-space: nowrap; }
+html.jdx.jdx-player:not(.jdx-pcenter-off) .videoOsdBottom .buttons > div[dir="ltr"] {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+/* ---- Kompakte Steuerleiste ---- */
+html.jdx.jdx-player-compact.jdx-player .videoOsdBottom { padding-top: 3.2em; padding-bottom: 0.75em; }
+html.jdx.jdx-player-compact.jdx-player .videoOsdBottom .osdControls { padding: 0 0.6em; }
+html.jdx.jdx-player-compact.jdx-player .videoOsdBottom .sliderContainer { margin: 0.2em 0 0 !important; }
+html.jdx.jdx-player-compact.jdx-player .videoOsdBottom .osdTextContainer { margin-bottom: 0; }
+html.jdx.jdx-player-compact.jdx-player .videoOsdBottom .osdMainTextContainer:has(.osdTitle:empty),
+html.jdx.jdx-player-compact.jdx-player .videoOsdBottom .osdSecondaryMediaInfo:empty { display: none; }
+html.jdx.jdx-player-compact.jdx-player .videoOsdBottom .osdPositionText,
+html.jdx.jdx-player-compact.jdx-player .videoOsdBottom .osdDurationText { font-size: 0.82em; }
+html.jdx.jdx-player-compact.jdx-player .videoOsdBottom .buttons { padding: 0; min-height: 2.1em; }
+html.jdx.jdx-player-compact.jdx-player .videoOsdBottom .buttons .paper-icon-button-light { padding: 0.32em; margin: 0 0.08em; }
+html.jdx.jdx-player-compact.jdx-player .videoOsdBottom .buttons .xlargePaperIconButton { font-size: 1.28em !important; }
+html.jdx.jdx-player-compact.jdx-player .videoOsdBottom .buttons .largePaperIconButton { font-size: 1.2em !important; }
+html.jdx.jdx-player-compact.jdx-player .videoOsdBottom .buttons .btnPause { margin: 0 0.25em; }
+html.jdx.jdx-player-compact.jdx-player .videoOsdBottom .osdTimeText { font-size: 0.85em; }
+html.jdx.jdx-player-compact.jdx-player .videoOsdBottom .volumeButtons { margin: 0 0.4em 0 0.1em; }
+html.jdx.jdx-player-compact.jdx-player .videoOsdBottom .osdVolumeSliderContainer { width: 5.5em; }
+html.jdx.jdx-player-compact.jdx-player .videoOsdBottom .mdl-slider-background-flex { height: 0.26em; margin-top: -0.13em; }
+html.jdx.jdx-player-compact.jdx-player .videoOsdBottom .sliderContainer:hover .mdl-slider-background-flex { height: 0.42em; margin-top: -0.21em; }
+html.jdx.jdx-player-compact.jdx-player .videoOsdBottom .mdl-slider::-webkit-slider-thumb { width: 0.9em; height: 0.9em; box-shadow: 0 0 0 3px rgba(var(--jdx-accent-rgb), 0.45), 0 2px 6px rgba(0, 0, 0, 0.5); }
+
+/* =====================================================================
+   Plugin "In-Player Episode Preview" (Episodenliste): Panel rechts im Player
+   Das Plugin setzt sein Fenster fest bei left: 50vw / bottom: 1.5vh / width: 48vw – das überdeckt die
+   Steuerleiste und wirkt wie ein Fremdkörper. Hier: schmales Panel am rechten Rand, zwischen Kopf und
+   Steuerleiste, in Farben, Rundung und Glas des Themes.
+   ===================================================================== */
+
+html.jdx.jdx-epanel #previewPopup .dialogBackdrop {
+  background: linear-gradient(270deg, rgba(var(--jdx-bg-rgb), 0.5) 0%, rgba(var(--jdx-bg-rgb), 0) 55%) !important;
+}
+html.jdx.jdx-epanel #previewPopup .previewPopup.actionSheet {
+  position: fixed;
+  left: auto !important;
+  right: 1.1vw;
+  top: auto;
+  bottom: calc(var(--jdx-osd-room, 7em) + 0.5rem);
+  width: clamp(340px, 29vw, 500px);
+  max-width: calc(100vw - 2.2vw);
+  height: auto;
+  /* so hoch wie der Inhalt, höchstens bis unter den Kopf des Players */
+  max-height: calc(100vh - 3.6rem - var(--jdx-osd-room, 7em) - 0.5rem);
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  overflow: hidden;
+  color: var(--jdx-text);
+  font-family: var(--jdx-font);
+  background: rgba(var(--jdx-surface-rgb), 0.78);
+  border: 1px solid rgba(var(--jdx-text-rgb), 0.1);
+  border-radius: calc(var(--jdx-radius) * 1.5);
+  box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  -webkit-backdrop-filter: blur(22px) saturate(1.5);
+  backdrop-filter: blur(22px) saturate(1.5);
+  animation: jdx-epanel-in 0.26s var(--jdx-ease) both;
+}
+@keyframes jdx-epanel-in { from { opacity: 0; transform: translateX(28px); } to { opacity: 1; transform: none; } }
+html.jdx.jdx-glassmode #previewPopup .previewPopup.actionSheet { background: rgba(255, 255, 255, 0.07); border-color: rgba(255, 255, 255, 0.14); }
+html.jdx.jdx-liquid #previewPopup .previewPopup.actionSheet {
   background: var(--jdx-lg-fill);
   border: 0;
   box-shadow: var(--jdx-lg-rim), var(--jdx-lg-shadow);
-  -webkit-backdrop-filter: var(--jdx-lg-blur);
-  backdrop-filter: var(--jdx-lg-blur);
 }
-html.jdx.jdx-liquid.jdx-refraction .jdx-island {
-  -webkit-backdrop-filter: url(#jdx-liquid-filter) saturate(1.9) brightness(1.1);
-  backdrop-filter: url(#jdx-liquid-filter) saturate(1.9) brightness(1.1);
+html.jdx.jdx-epanel #previewPopup .previewPopupTitle { max-height: none; padding: 0.5em 0.9em 0.2em; flex: 0 0 auto; }
+html.jdx.jdx-epanel #previewPopup .previewPopupTitle h1.actionSheetTitle { font-size: 1.05rem; font-weight: 700; color: var(--jdx-text); }
+html.jdx.jdx-epanel #previewPopup .previewPopupScroller {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none !important;
+  overflow-y: auto;
+  padding: 0.3em 0.45em 0.6em;
+  scrollbar-color: rgba(var(--jdx-text-rgb), 0.3) transparent !important;
 }
+html.jdx.jdx-epanel #previewPopup .previewPopupScroller::-webkit-scrollbar-thumb { background-color: rgba(var(--jdx-text-rgb), 0.28); }
+html.jdx.jdx-epanel #previewPopup .previewPopupScroller::-webkit-scrollbar-thumb:hover { background-color: rgba(var(--jdx-accent-rgb), 0.7); }
+
+/* Zeilen */
+html.jdx.jdx-epanel #previewPopup .listItem,
+html.jdx.jdx-epanel #previewPopup .actionSheetMenuItem {
+  border-radius: calc(var(--jdx-radius) * 0.9);
+  color: var(--jdx-text);
+  transition: background-color 0.18s ease;
+}
+html.jdx.jdx-epanel #previewPopup .previewListItem { margin-bottom: 0.35em; padding: 0.35em 0.45em; }
+html.jdx.jdx-epanel #previewPopup .previewListItem:hover,
+html.jdx.jdx-epanel #previewPopup .previewListItem:focus-visible { background: rgba(var(--jdx-text-rgb), 0.08); }
+html.jdx.jdx-epanel #previewPopup .selectedListItem {
+  background: rgba(var(--jdx-accent-rgb), 0.16) !important;
+  box-shadow: inset 3px 0 0 var(--jdx-accent);
+}
+html.jdx.jdx-epanel #previewPopup .actionSheetItemText { color: var(--jdx-text); font-weight: 600; }
+html.jdx.jdx-epanel #previewPopup .previewItemDescription,
+html.jdx.jdx-epanel #previewPopup .itemMiscInfo,
+html.jdx.jdx-epanel #previewPopup .secondary,
+html.jdx.jdx-epanel #previewPopup .listItemBodyText.secondary { color: var(--jdx-muted); font-size: 0.86rem; }
+html.jdx.jdx-epanel #previewPopup .previewItemImageCard { max-width: 38%; }
+html.jdx.jdx-epanel #previewPopup .previewItemImageCard .cardScalable,
+html.jdx.jdx-epanel #previewPopup .previewItemImageCard .cardImageContainer { border-radius: calc(var(--jdx-radius) * 0.7) !important; }
+html.jdx.jdx-epanel #previewPopup .previewListItemContent { min-height: 0; }
+html.jdx.jdx-epanel #previewPopup .previewItemReadMoreButton { color: var(--jdx-accent); }
+html.jdx.jdx-epanel #previewPopup .previewGroupWatchedCount { border-radius: 999px; }
+html.jdx.jdx-epanel #previewPopup .paper-icon-button-light { color: var(--jdx-text); border-radius: 50%; }
+html.jdx.jdx-epanel #previewPopup .paper-icon-button-light:hover { background: rgba(var(--jdx-text-rgb), 0.12); }
+html.jdx.jdx-epanel #previewPopup .previewVersionSelect { background: var(--jdx-surface2); color: var(--jdx-text); border: 1px solid rgba(var(--jdx-text-rgb), 0.12); border-radius: 8px; }
+html.jdx.jdx-epanel #previewPopup .itemProgressBarForeground { background: linear-gradient(90deg, var(--jdx-accent), var(--jdx-accent2)) !important; }
+@media (max-width: 900px) { html.jdx.jdx-epanel #previewPopup .previewPopup.actionSheet { width: min(92vw, 420px); } }
 
 /* =====================================================================
    Genre-Rubriken auf der Startseite (nutzen Jellyfins Karten-Klassen)
@@ -835,10 +916,9 @@ html.jdx-frameless .MuiAppBar-root .MuiToolbar-root > .jdx-winctl {
 }
 html.jdx-frameless .MuiAppBar-root .MuiToolbar-root > .jdx-winctl button { width: 46px; height: 36px; }
 /* im Player-Kopf eine eigene Insel */
-html.jdx.jdx-player .osdHeader .jdx-winctl { margin-left: auto; color: var(--jdx-text); }
-html.jdx.jdx-player.jdx-islands-on .osdHeader .jdx-winctl.jdx-island-start { margin-left: auto !important; }
-html.jdx.jdx-player .osdHeader .jdx-winctl button { width: 40px; height: 36px; border-radius: 999px; }
-html.jdx.jdx-player .osdHeader .jdx-winctl { gap: 0; }
+html.jdx.jdx-player .osdHeader .jdx-winctl { margin-left: auto; color: #fff; }
+html.jdx.jdx-player .osdHeader .jdx-winctl button { width: 42px; height: 34px; border-radius: 50%; }
+html.jdx.jdx-player .osdHeader .jdx-winctl { gap: 2px; }
 
 #jdx-winctl-float {
   position: fixed;
@@ -1503,9 +1583,9 @@ html.jdx-own-ratings .itemDetailPage .itemMiscInfo .mediaInfoCriticRating { disp
 .jdx-mb[data-anim="slide"].dir-prev .jdx-slide.is-active { animation-name: jdx-in-slide-prev; }
 .jdx-mb[data-anim="slide"].dir-prev .jdx-slide.is-leaving { animation-name: jdx-out-slide-prev; }
 @keyframes jdx-in-slide { from { transform: translateX(100%); } to { transform: none; } }
-@keyframes jdx-out-slide { from { transform: none; } to { transform: translateX(-35%); filter: brightness(0.4); } }
+@keyframes jdx-out-slide { from { transform: none; opacity: 1; } 99% { transform: translateX(-35%); filter: brightness(0.4); opacity: 1; } 100% { transform: translateX(-35%); filter: brightness(0.4); opacity: 0; } }
 @keyframes jdx-in-slide-prev { from { transform: translateX(-100%); } to { transform: none; } }
-@keyframes jdx-out-slide-prev { from { transform: none; } to { transform: translateX(35%); filter: brightness(0.4); } }
+@keyframes jdx-out-slide-prev { from { transform: none; opacity: 1; } 99% { transform: translateX(35%); filter: brightness(0.4); opacity: 1; } 100% { transform: translateX(35%); filter: brightness(0.4); opacity: 0; } }
 
 /* Zoom */
 .jdx-mb[data-anim="zoom"] .jdx-slide.is-active { animation-name: jdx-in-zoom; }
@@ -1532,7 +1612,8 @@ html.jdx-own-ratings .itemDetailPage .itemMiscInfo .mediaInfoCriticRating { disp
 .jdx-mb[data-anim="wipe"] .jdx-slide.is-leaving { animation-name: jdx-hold; }
 @keyframes jdx-in-wipe { from { clip-path: inset(0 0 0 100%); } to { clip-path: inset(0 0 0 0); } }
 @keyframes jdx-in-wipe-prev { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
-@keyframes jdx-hold { from { opacity: 1; } to { opacity: 1; } }
+/* Alte Folie bleibt bis zum Ende des Übergangs stehen und ist dann sofort unsichtbar */
+@keyframes jdx-hold { 0%, 99% { opacity: 1; } 100% { opacity: 0; } }
 
 /* Kreis */
 .jdx-mb[data-anim="circle"] .jdx-slide.is-active { animation-name: jdx-in-circle; animation-timing-function: cubic-bezier(0.6, 0, 0.25, 1); animation-duration: calc(var(--jdx-mb-dur) * 1.3); }
@@ -1545,9 +1626,9 @@ html.jdx-own-ratings .itemDetailPage .itemMiscInfo .mediaInfoCriticRating { disp
 .jdx-mb[data-anim="rise"].dir-prev .jdx-slide.is-active { animation-name: jdx-in-rise-prev; }
 .jdx-mb[data-anim="rise"].dir-prev .jdx-slide.is-leaving { animation-name: jdx-out-rise-prev; }
 @keyframes jdx-in-rise { from { transform: translateY(100%); } to { transform: none; } }
-@keyframes jdx-out-rise { from { transform: none; } to { transform: translateY(-30%); filter: brightness(0.4); } }
+@keyframes jdx-out-rise { from { transform: none; opacity: 1; } 99% { transform: translateY(-30%); filter: brightness(0.4); opacity: 1; } 100% { transform: translateY(-30%); filter: brightness(0.4); opacity: 0; } }
 @keyframes jdx-in-rise-prev { from { transform: translateY(-100%); } to { transform: none; } }
-@keyframes jdx-out-rise-prev { from { transform: none; } to { transform: translateY(30%); filter: brightness(0.4); } }
+@keyframes jdx-out-rise-prev { from { transform: none; opacity: 1; } 99% { transform: translateY(30%); filter: brightness(0.4); opacity: 1; } 100% { transform: translateY(30%); filter: brightness(0.4); opacity: 0; } }
 
 /* Fokus: aus Unschärfe heranzoomen */
 .jdx-mb[data-anim="focus"] .jdx-slide.is-active { animation-name: jdx-in-focus; }
@@ -1588,9 +1669,9 @@ html.jdx-own-ratings .itemDetailPage .itemMiscInfo .mediaInfoCriticRating { disp
 .jdx-mb[data-anim="cube"].dir-prev .jdx-slide.is-active { animation-name: jdx-in-cube-prev; }
 .jdx-mb[data-anim="cube"].dir-prev .jdx-slide.is-leaving { animation-name: jdx-out-cube-prev; }
 @keyframes jdx-in-cube { from { transform: rotateY(60deg); filter: brightness(0.4); } to { transform: none; filter: none; } }
-@keyframes jdx-out-cube { from { transform: none; } to { transform: rotateY(-60deg); filter: brightness(0.4); } }
+@keyframes jdx-out-cube { from { transform: none; opacity: 1; } 99% { transform: rotateY(-60deg); filter: brightness(0.4); opacity: 1; } 100% { transform: rotateY(-60deg); filter: brightness(0.4); opacity: 0; } }
 @keyframes jdx-in-cube-prev { from { transform: rotateY(-60deg); filter: brightness(0.4); } to { transform: none; filter: none; } }
-@keyframes jdx-out-cube-prev { from { transform: none; } to { transform: rotateY(60deg); filter: brightness(0.4); } }
+@keyframes jdx-out-cube-prev { from { transform: none; opacity: 1; } 99% { transform: rotateY(60deg); filter: brightness(0.4); opacity: 1; } 100% { transform: rotateY(60deg); filter: brightness(0.4); opacity: 0; } }
 
 /* ---------------------------------------------------- Text-Animationen */
 

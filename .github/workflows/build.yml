@@ -104,14 +104,20 @@ jobs:
             linux/dist/*.rpm
             linux/dist/*.pacman
 
-  # Alte Build-Artefakte löschen (die Dateien liegen ohnehin in den Releases)
+  # Aufräumen nach erfolgreichem Build: alte Build-Artefakte und alle Releases außer den neuesten 3
   cleanup:
-    if: github.ref == 'refs/heads/main'
+    needs: [windows, linux]
+    if: github.ref == 'refs/heads/main' && !cancelled() && needs.windows.result == 'success' && needs.linux.result == 'success'
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v5
       - name: Alte Artefakte entfernen
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh api "repos/$GITHUB_REPOSITORY/actions/artifacts" --paginate --jq '.artifacts[] | select(.expired == false) | .id' |
             while read -r id; do gh api -X DELETE "repos/$GITHUB_REPOSITORY/actions/artifacts/$id" && echo "gelöscht: $id"; done
+      - name: Nur die neuesten 3 Releases behalten
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/scripts/prune-releases.sh 3

@@ -1,5 +1,5 @@
 ; Installer für JellyDrax
-; Bauen:  makensis -DVERSION=2.8.0 installer/JellyDrax.nsi
+; Bauen:  makensis -DVERSION=2.9.0 installer/JellyDrax.nsi
 ; Erwartet die veröffentlichte EXE unter dist\JellyDrax.exe
 
 Unicode true
@@ -7,7 +7,7 @@ SetCompressor /SOLID lzma
 RequestExecutionLevel user          ; Installation pro Benutzer, keine Administratorrechte nötig
 
 !ifndef VERSION
-  !define VERSION "2.8.0"
+  !define VERSION "2.9.0"
 !endif
 !define APPNAME      "JellyDrax"
 !define EXENAME      "JellyDrax.exe"

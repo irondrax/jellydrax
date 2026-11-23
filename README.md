@@ -17,7 +17,7 @@ Entwickelt für **Jellyfin 12.4** (funktioniert auch mit 10.10/10.11).
 | **Design** | eigene Farben, Schrift, Eckenradius, Kopfleiste mit Glas-Effekt, Hintergrund ohne Medienbilder |
 | **Server-CSS** | wird standardmäßig ignoriert (z. B. ElegantFin) – abschaltbar unter *Erweitert* |
 | **Media Bar** | eigene Media Bar auf der Startseite (6 Stile, 8 Übergänge, Trailer im Hintergrund) |
-| **Player** | Optik im Theme-Design mit Button-Inseln (abschaltbar); abgespielt wird weiterhin mit dem Jellyfin-Player, Player-Plugins (z. B. Intro Skipper) funktionieren wie gewohnt |
+| **Player** | Optik im Theme-Design, wahlweise kompakt, Medien-Buttons mittig (abschaltbar); abgespielt wird weiterhin mit dem Jellyfin-Player, Player-Plugins (z. B. Intro Skipper) funktionieren wie gewohnt |
 | **Plugins** | JavaScript-Plugins des Servers laufen weiterhin; eine Media Bar eines Server-Plugins wird auf Wunsch ausgeblendet |
 
 ## JellyDrax-Einstellungen
@@ -45,9 +45,10 @@ Rechtsklick-Menü der Titelleiste. Alle Änderungen sind sofort sichtbar und wer
 - **Bewertungen** – IMDb, Rotten Tomatoes, Metacritic (und Community ★) in der Media Bar und auf
   Film-/Serienseiten; jede Quelle schaltbar, Größe per Regler. IMDb/Metacritic über einen kostenlosen
   OMDb-Schlüssel (omdbapi.com), Ergebnisse werden 14 Tage zwischengespeichert.
-- **Player** – Videoplayer im Theme-Design, Buttons als „Inseln“ gruppiert (Wiedergabe · Endzeit ·
-  Favorit/Untertitel/Audio · Lautstärke · Einstellungen/Vollbild). Nur Optik: Player-Plugins funktionieren
-  unverändert, Plugin-Buttons erhalten eine eigene Insel.
+- **Player** – Videoplayer im Theme-Design mit **kompakter Steuerleiste** (weniger Bildschirmfläche) und
+  **mittig angeordneten Medien-Buttons** (Endzeit links, übrige Buttons rechts; bei zu wenig Platz automatisch
+  wie bisher). Das Fenster des Plugins „In-Player Episode Preview“ erscheint als **Panel am rechten Rand**
+  über der Steuerleiste im Design des Themes. Nur Optik: Player-Plugins funktionieren unverändert.
 - **Updates** (Windows) – Suche nach neuen Versionen und Update mit einem Klick (Installer im Hintergrund bzw.
   Austausch der EXE, SHA-256-geprüft), automatische Prüfung beim Start.
 - **Animationen** – Hover über Poster/Medienfelder: *Elegant* (wie ElegantFin: feiner Rahmen wird weiß,
@@ -61,11 +62,11 @@ Rechtsklick-Menü der Titelleiste. Alle Änderungen sind sofort sichtbar und wer
 
 ## Installation
 
-**Installer:** `JellyDrax-Setup-2.8.0.exe` ausführen. Installiert pro Benutzer (keine Adminrechte) nach
+**Installer:** `JellyDrax-Setup-2.9.0.exe` ausführen. Installiert pro Benutzer (keine Adminrechte) nach
 `%LOCALAPPDATA%\Programs\JellyDrax`, legt einen **Startmenü-Eintrag** an (optional Desktop-Verknüpfung) und
 erscheint unter *Einstellungen → Apps → Installierte Apps*. Eine vorhandene Installation von
 „Jellyfin Desktop“ wird ersetzt – Server, Anmeldung und Fensterposition werden übernommen.
-Stille Installation: `JellyDrax-Setup-2.8.0.exe /S`.
+Stille Installation: `JellyDrax-Setup-2.9.0.exe /S`.
 
 **Ohne Installation:** `JellyDrax.exe` direkt ausführen (kein .NET nötig).
 
@@ -87,7 +88,7 @@ Windows-Datenschutz (DPAPI) verschlüsselt gespeichert. Bei einem öffentlichen 
 ## Fenster (Windows)
 
 Die Titelleiste ist standardmäßig ausgeblendet. Minimieren, Maximieren und Schließen sitzen rechts in der
-Kopfleiste (im Player als eigene Insel). Verschieben über die freie Fläche der Kopfleiste, Doppelklick
+Kopfleiste (im Player oben rechts). Verschieben über die freie Fläche der Kopfleiste, Doppelklick
 maximiert, Rechtsklick öffnet das Fenstermenü (auch Alt+Leertaste). Schatten, abgerundete Ecken,
 Größenänderung und Andocken bleiben erhalten. Zurück zur klassischen Titelleiste:
 *Einstellungen → Erweitert → Titelleiste ausblenden* oder Fenstermenü → „Titelleiste ein-/ausblenden“.
@@ -156,9 +157,11 @@ Server, sofern nicht `--enable-vaapi` und ein passender VA-API-Treiber die Hardw
 
 ```
 dotnet publish src/JellyDrax -c Release -o dist
-makensis -DVERSION=2.8.0 installer/JellyDrax.nsi
+makensis -DVERSION=2.9.0 installer/JellyDrax.nsi
 ```
 
 Benötigt das .NET 8 SDK und für den Installer [NSIS](https://nsis.sourceforge.io).
 Der GitHub-Workflow in `.github/workflows/build.yml` baut Windows- und Linux-Pakete und legt bei
-einer neuen Versionsnummer automatisch ein Release an.
+einer neuen Versionsnummer automatisch ein Release an. Es bleiben immer nur die **neuesten 3 Releases**
+online; ältere werden samt Tag automatisch gelöscht. Damit alle Pakete im Release landen, müssen
+`<Version>` in `src/JellyDrax/JellyDrax.csproj` und `version` in `linux/package.json` übereinstimmen.
