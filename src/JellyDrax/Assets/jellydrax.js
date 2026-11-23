@@ -27,6 +27,8 @@
     liquid: { name: 'Liquid Glass', glass: true, liquid: true, bg: '#060912', surface: '#121a30', surface2: '#1d2745', text: '#ffffff', muted: '#bcc5df', accent: '#5ac8fa', accent2: '#bf5af2' },
     glassnoir: { name: 'Glass Noir', glass: true, darkGlass: true, bg: '#030305', surface: '#0c0c11', surface2: '#16161d', text: '#f3f3f7', muted: '#9d9daa', accent: '#8e9bff', accent2: '#c58bff' },
     glassobsidian: { name: 'Glass Obsidian', glass: true, darkGlass: true, bg: '#01050a', surface: '#07111b', surface2: '#0e1c2a', text: '#eaf3fb', muted: '#8fa4b6', accent: '#38bdf8', accent2: '#6366f1' },
+    cyberpunk: { name: 'Cyberpunk 2077', cyber: true, preset: { font: 'bahnschrift', radius: 0, bgStyle: 'solid', texture: 'scan', textureStrength: 45, hover: 'glitch' },
+      bg: '#06060a', surface: '#101014', surface2: '#1a1a20', text: '#f6f3e4', muted: '#a8a48c', accent: '#fcee09', accent2: '#00f0ff' },
     glass: { name: 'Glass', glass: true, bg: '#0a0f1f', surface: '#151b33', surface2: '#212a4a', text: '#f4f6ff', muted: '#aeb6d4', accent: '#7aa2ff', accent2: '#c77dff' },
     jellydrax: { name: 'JellyDrax', bg: '#0d0b14', surface: '#17141f', surface2: '#231e2f', text: '#f2eefa', muted: '#a9a1b8', accent: '#9b5cff', accent2: '#00c2ff' },
     midnight: { name: 'Midnight', bg: '#090d18', surface: '#111827', surface2: '#1b2438', text: '#e8ecf7', muted: '#98a2bd', accent: '#4f8cff', accent2: '#8b5cf6' },
@@ -63,6 +65,7 @@
     refraction: true,
     detailBanner: 'color',
     bgStyle: 'glow',
+    navPills: true,
     texture: 'grain',
     textureStrength: 35,
     radius: 12,
@@ -112,6 +115,7 @@
       size: 'compact',
       centerControls: true,
       episodePanel: true,
+      hideDelay: 2,
       hideTopActions: true
     },
     ratings: {
@@ -203,9 +207,14 @@
       st.glass = !!THEMES[st.theme].glass; st.liquid = !!THEMES[st.theme].liquid;
     }
     if (!THEMES[st.theme]) st.theme = 'jellydrax';
-    var styles = { card: 'cinema', poster: 'stage', magazine: 'split' };
+    // entfernte Media-Bar-Stile und Übergänge -> ähnliche Variante
+    var styles = { center: 'cinema', compact: 'card', stage: 'split', carousel: 'banner', poster: 'card', magazine: 'split' };
     if (styles[st.mediaBar.style]) st.mediaBar.style = styles[st.mediaBar.style];
-    if (st.mediaBar.animation === 'kenburns') { st.mediaBar.animation = 'fade'; st.mediaBar.kenburns = true; }
+    var anims = { dip: 'fade', focus: 'zoom', cube: 'slide', flip: 'rise', circle: 'wipe', kenburns: 'fade' };
+    if (anims[st.mediaBar.animation]) {
+      if (st.mediaBar.animation === 'kenburns') st.mediaBar.kenburns = true;
+      st.mediaBar.animation = anims[st.mediaBar.animation];
+    }
     if (st.hover === 'tilt' || st.hover === 'glow') st.hover = 'elegant';
     return st;
   }
@@ -334,6 +343,9 @@
     r.classList.toggle('jdx-noscrollbar', !!S.hideScrollbar);
     r.classList.toggle('jdx-player', !!S.player.theme);
     r.classList.toggle('jdx-player-compact', S.player.size === 'compact');
+    r.classList.toggle('jdx-navpills', !!S.navPills);
+    r.classList.toggle('jdx-cyber', !!(THEMES[S.theme] && THEMES[S.theme].cyber));
+    r.style.setProperty('--jdx-home-label', /^de/i.test(navigator.language || '') ? '"Startseite"' : '"Home"');
     r.classList.toggle('jdx-epanel', !!(S.player.theme && S.player.episodePanel));
     r.classList.toggle('jdx-hide-osd-actions', !!S.player.hideTopActions);
     r.classList.toggle('jdx-own-ratings', !!(S.ratings.onDetails && S.ratings.hideJellyfinRatings));
@@ -604,6 +616,23 @@
   // Würde die Mitte mit den Buttons links/rechts kollidieren (schmales Fenster, viele Plugin-Buttons),
   // fällt die Leiste automatisch auf die normale Anordnung zurück.
 
+  // Jellyfin blendet die Steuerung mit einem fest eingebauten setTimeout(hideOsd, 3000) aus. Dieser eine
+  // Timer wird – nur solange die Player-Steuerung sichtbar ist – auf die eingestellte Zeit verkürzt.
+  var nativeSetTimeout = window.setTimeout;
+  window.setTimeout = function (fn, delay) {
+    var secs = Number(S.player && S.player.hideDelay);
+    if (delay === 3000 && secs && secs !== 3 && osdIsShown()) {
+      var args = Array.prototype.slice.call(arguments);
+      args[1] = secs * 1000;
+      return nativeSetTimeout.apply(window, args);
+    }
+    return nativeSetTimeout.apply(window, arguments);
+  };
+  function osdIsShown() {
+    var b = document.querySelector('.videoOsdBottom');
+    return !!(b && b.getClientRects().length);
+  }
+
   var playerWatch = typeof WeakMap === 'function' ? new WeakMap() : null;
   var playerFrame = 0;
 
@@ -653,6 +682,15 @@
       if (window.ResizeObserver) new ResizeObserver(schedulePlayerLayout).observe(bar);
       playerWatch.set(bar, true);
     }
+  }
+
+  // Navigation: "Startseite" (Server-Button) ist aktiv, solange die Startseite (Tab 0) offen ist
+  function updateNavState() {
+    var btn = document.querySelector('.MuiAppBar-root .MuiToolbar-root > .MuiStack-root > .MuiButton-root:first-child');
+    if (!btn) return;
+    var h = location.hash || '';
+    var home = /^#?\/?$/.test(h) || (/^#\/home\b/.test(h) && !/[?&]tab=[1-9]/.test(h));
+    if (btn.classList.contains('jdx-nav-active') !== home) btn.classList.toggle('jdx-nav-active', home);
   }
 
   function schedulePlayerLayout() { if (!playerFrame) playerFrame = requestAnimationFrame(updatePlayerLayout); }
@@ -1120,7 +1158,6 @@
         el('div', { class: 'jdx-slide-video' })
       ]),
       el('div', { class: 'jdx-slide-shade' }),
-      el('div', { class: 'jdx-slide-frame', 'data-src': backdrop }),
       body
     ]);
   }
@@ -1336,7 +1373,7 @@
 
   function maybeStartTrailer(item, slide) {
     var mode = S.mediaBar.trailers;
-    if (mode === 'off' || !item || S.mediaBar.style === 'stage') return;
+    if (mode === 'off' || !item) return;
     MB.muted = !S.mediaBar.trailerSound;
     updateMuteIcon();
     MB.trailerTimer = setTimeout(function () {
@@ -1519,21 +1556,17 @@
 
   var MB_STYLES = [
     ['cinema', 'Kino', 'Volle Breite, Text links, reicht bis unter die Kopfleiste'],
-    ['center', 'Zentriert', 'Logo und Text mittig mit Vignette'],
+    ['card', 'Karte', 'Abgerundete Karte, Text unten links, Pfeile als Pillen unten rechts'],
+    ['banner', 'Bannern', 'Banner mit seitlich angeschnittenen Nachbarn, Anzeige darunter'],
     ['split', 'Geteilt', 'Text auf Farbfläche links, Bild rechts'],
-    ['compact', 'Kompakt', 'Flaches Banner ohne Beschreibung'],
     ['spotlight', 'Spotlight', 'Volle Breite, Text rechts'],
-    ['carousel', 'Karussell', 'Aktiver Titel mittig, Nachbarn seitlich sichtbar'],
-    ['stage', 'Bühne', 'Bild ungeschnitten im Rahmen vor unscharfem Hintergrund'],
     ['diagonal', 'Diagonal', 'Farbfläche mit schrägem Bildanschnitt'],
-    ['minimal', 'Minimal', 'Nur Bild, Titel und Buttons – mittig unten']
+    ['minimal', 'Minimal', 'Deckend, nur Bild, Titel und Buttons – mittig unten']
   ];
 
   var MB_ANIMS = [
-    ['fade', 'Überblenden'], ['dip', 'Abblenden über Schwarz'], ['slide', 'Schieben (seitlich)'], ['rise', 'Hochschieben'],
-    ['zoom', 'Zoom'], ['focus', 'Fokus (Unschärfe + Zoom)'], ['blur', 'Unschärfe'], ['wipe', 'Wischen'],
-    ['diagonal', 'Diagonal wischen'], ['split', 'Öffnen von der Mitte'], ['circle', 'Kreis-Enthüllung'],
-    ['cube', '3D-Würfel'], ['flip', '3D-Drehung']
+    ['fade', 'Überblenden'], ['slide', 'Schieben (seitlich)'], ['rise', 'Hochschieben'], ['zoom', 'Zoom'],
+    ['blur', 'Unschärfe'], ['wipe', 'Wischen'], ['diagonal', 'Diagonal wischen'], ['split', 'Öffnen von der Mitte']
   ];
   var TEXT_ANIMS = [['rise', 'Von unten einblenden'], ['fade', 'Einblenden'], ['slide', 'Von links hereingleiten'], ['scale', 'Heranzoomen'], ['blur', 'Aus Unschärfe'], ['none', 'Keine']];
   var INDICATORS = [['bars', 'Fortschrittsbalken'], ['dots', 'Punkte'], ['thumbs', 'Vorschaubilder'], ['counter', 'Zähler'], ['none', 'Keine']];
@@ -1545,6 +1578,7 @@
     ['lift', 'Anheben', 'Karte schwebt nach oben'],
     ['zoom', 'Bild-Zoom', 'Bild zoomt im Rahmen'],
     ['shine', 'Lichtreflex', 'Glanzstreifen läuft über das Bild'],
+    ['glitch', 'Glitch', 'Kurzer RGB-Glitch mit Streifen und Scanlines wie in Cyberpunk 2077'],
     ['none', 'Keine', 'Keine Hover-Animation']
   ];
   var PAGE_ANIMS = [['rise', 'Von unten einblenden'], ['fade', 'Einblenden'], ['scale', 'Heranzoomen'], ['slide', 'Seitlich hereingleiten'], ['none', 'Keine']];
@@ -1640,51 +1674,34 @@
       s.style.background = 'linear-gradient(90deg, #0d0b14 0%, rgba(13,11,20,.4) 55%, transparent), linear-gradient(135deg,#4b3a7a,#1f5a7a)';
       bar({ left: '8%', top: '40%', width: '38%', height: '9px' }); bar({ left: '8%', top: '58%', width: '30%', height: '5px', opacity: '.6' });
       bar({ left: '8%', top: '72%', width: '16%', height: '8px', borderRadius: '6px' }, 's-btn');
-    } else if (style === 'center') {
-      s.style.background = 'radial-gradient(ellipse at 50% 60%, transparent, #0d0b14 85%), linear-gradient(135deg,#4b3a7a,#1f5a7a)';
-      bar({ left: '30%', top: '36%', width: '40%', height: '9px' }); bar({ left: '25%', top: '54%', width: '50%', height: '5px', opacity: '.6' });
-      bar({ left: '42%', top: '70%', width: '16%', height: '8px', borderRadius: '6px' }, 's-btn');
     } else if (style === 'card') {
       s.style.background = '#0d0b14';
-      bar({ left: '5%', top: '8%', width: '90%', height: '84%', background: 'linear-gradient(135deg,#4b3a7a,#1f5a7a)', borderRadius: '8px' });
-      bar({ left: '10%', top: '44%', width: '42%', height: '40%', background: 'rgba(255,255,255,.18)', borderRadius: '6px' });
-      bar({ left: '14%', top: '54%', width: '28%', height: '6px' }); bar({ left: '14%', top: '70%', width: '12%', height: '7px', borderRadius: '5px' }, 's-btn');
+      bar({ left: '5%', top: '8%', width: '90%', height: '84%', background: 'linear-gradient(135deg,#4b3a7a,#c08a5a)', borderRadius: '8px' });
+      bar({ left: '9%', top: '52%', width: '30%', height: '8px', background: '#fff' }); bar({ left: '9%', top: '66%', width: '38%', height: '5px', opacity: '.6' });
+      bar({ left: '9%', top: '77%', width: '12%', height: '7px', borderRadius: '5px' }, 's-btn');
+      bar({ left: '70%', top: '77%', width: '9%', height: '8px', borderRadius: '5px', opacity: '.55' }); bar({ left: '82%', top: '77%', width: '9%', height: '8px', borderRadius: '5px', opacity: '.55' });
+    } else if (style === 'banner') {
+      s.style.background = '#0d0b14';
+      bar({ left: '-6%', top: '14%', width: '12%', height: '58%', background: 'linear-gradient(135deg,#3a2f5c,#8a6a4a)', borderRadius: '6px', opacity: '.55' });
+      bar({ right: '-6%', top: '14%', width: '12%', height: '58%', background: 'linear-gradient(135deg,#3a2f5c,#8a6a4a)', borderRadius: '6px', opacity: '.55' });
+      bar({ left: '9%', top: '10%', width: '82%', height: '64%', background: 'linear-gradient(135deg,#4b3a7a,#c08a5a)', borderRadius: '7px' });
+      bar({ left: '14%', top: '44%', width: '26%', height: '7px', background: '#fff' }); bar({ left: '14%', top: '56%', width: '34%', height: '5px', opacity: '.6' });
+      bar({ left: '14%', top: '65%', width: '11%', height: '6px', borderRadius: '5px' }, 's-btn');
+      bar({ left: '41%', top: '83%', width: '8%', height: '5px', borderRadius: '5px', opacity: '.9' }); bar({ left: '52%', top: '83%', width: '4%', height: '5px', borderRadius: '5px', opacity: '.4' }); bar({ left: '58%', top: '83%', width: '4%', height: '5px', borderRadius: '5px', opacity: '.4' });
     } else if (style === 'split') {
       s.style.background = '#17141f';
       bar({ left: '40%', top: '0', width: '60%', height: '100%', background: 'linear-gradient(90deg,transparent,#4b3a7a 35%,#1f5a7a)', borderRadius: '0' });
       bar({ left: '8%', top: '36%', width: '28%', height: '9px' }); bar({ left: '8%', top: '54%', width: '24%', height: '5px', opacity: '.6' });
       bar({ left: '8%', top: '70%', width: '14%', height: '8px', borderRadius: '6px' }, 's-btn');
-    } else if (style === 'poster') {
-      s.style.background = 'linear-gradient(135deg,#2c2440,#16303f)';
-      bar({ left: '8%', top: '12%', width: '20%', height: '76%', background: 'linear-gradient(160deg,#7a5ab0,#2c6a8a)', borderRadius: '4px' });
-      bar({ left: '36%', top: '36%', width: '36%', height: '9px' }); bar({ left: '36%', top: '54%', width: '44%', height: '5px', opacity: '.6' });
-      bar({ left: '36%', top: '70%', width: '14%', height: '8px', borderRadius: '6px' }, 's-btn');
     } else if (style === 'spotlight') {
       s.style.background = 'linear-gradient(270deg, #0d0b14 0%, rgba(13,11,20,.4) 55%, transparent), linear-gradient(135deg,#4b3a7a,#1f5a7a)';
       bar({ right: '8%', top: '40%', width: '38%', height: '9px' }); bar({ right: '8%', top: '58%', width: '30%', height: '5px', opacity: '.6' });
       bar({ right: '8%', top: '72%', width: '16%', height: '8px', borderRadius: '6px' }, 's-btn');
-    } else if (style === 'carousel') {
-      s.style.background = '#0d0b14';
-      bar({ left: '-6%', top: '18%', width: '24%', height: '64%', background: 'linear-gradient(135deg,#3a2f5c,#1f3f5a)', borderRadius: '6px', opacity: '.6' });
-      bar({ right: '-6%', top: '18%', width: '24%', height: '64%', background: 'linear-gradient(135deg,#3a2f5c,#1f3f5a)', borderRadius: '6px', opacity: '.6' });
-      bar({ left: '22%', top: '8%', width: '56%', height: '84%', background: 'linear-gradient(135deg,#5b46a0,#1f6a9a)', borderRadius: '7px' });
-      bar({ left: '27%', top: '62%', width: '24%', height: '6px' }); bar({ left: '27%', top: '75%', width: '12%', height: '6px', borderRadius: '5px' }, 's-btn');
-    } else if (style === 'stage') {
-      s.style.background = 'linear-gradient(135deg,#2c2440,#16303f)';
-      bar({ right: '6%', top: '14%', width: '50%', height: '72%', background: 'linear-gradient(135deg,#6a52b0,#2a7aa8)', borderRadius: '6px' });
-      bar({ left: '7%', top: '38%', width: '30%', height: '8px' }); bar({ left: '7%', top: '54%', width: '26%', height: '5px', opacity: '.6' });
-      bar({ left: '7%', top: '70%', width: '14%', height: '7px', borderRadius: '5px' }, 's-btn');
     } else if (style === 'diagonal') {
       s.style.background = '#17141f';
       bar({ left: '36%', top: '0', width: '64%', height: '100%', background: 'linear-gradient(135deg,#4b3a7a,#1f5a7a)', borderRadius: '0', clipPath: 'polygon(22% 0,100% 0,100% 100%,0 100%)' });
       bar({ left: '7%', top: '36%', width: '26%', height: '9px' }); bar({ left: '7%', top: '54%', width: '22%', height: '5px', opacity: '.6' });
       bar({ left: '7%', top: '70%', width: '13%', height: '8px', borderRadius: '6px' }, 's-btn');
-    } else if (style === 'magazine') {
-      s.style.background = '#17141f';
-      bar({ left: '44%', top: '10%', width: '52%', height: '80%', background: 'linear-gradient(135deg,#4b3a7a,#1f5a7a)', borderRadius: '6px' });
-      bar({ left: '7%', top: '18%', width: '14%', height: '14px', background: 'var(--jdx-accent)' });
-      bar({ left: '7%', top: '46%', width: '30%', height: '8px' }); bar({ left: '7%', top: '62%', width: '26%', height: '5px', opacity: '.6' });
-      bar({ left: '7%', top: '76%', width: '13%', height: '7px', borderRadius: '5px' }, 's-btn');
     } else if (style === 'minimal') {
       s.style.background = 'linear-gradient(0deg, #0d0b14 0%, transparent 60%), linear-gradient(135deg,#4b3a7a,#1f5a7a)';
       bar({ left: '35%', top: '58%', width: '30%', height: '8px' }); bar({ left: '42%', top: '74%', width: '16%', height: '7px', borderRadius: '5px' }, 's-btn');
@@ -1717,6 +1734,8 @@
         S.colors = {};
         S.glass = !!t.glass;
         S.liquid = !!t.liquid;
+        // Themes können passende Einstellungen mitbringen (z. B. Cyberpunk: eckig, Scanlines, Glitch-Hover)
+        if (t.preset) Object.keys(t.preset).forEach(function (k) { S[k] = t.preset[k]; });
         changed('theme');
         renderTab();
       });
@@ -1780,10 +1799,11 @@
       add(colorGrid());
       add(el('h3', { text: 'Darstellung' }));
       add(row('Hintergrund', 'Keine Bilder aus der Mediathek – nur Farbe', selectCtl('bgStyle', BG_STYLES)));
-      add(row('Struktur', 'Feine Oberfläche für den Hintergrund – sehr dezent', selectCtl('texture', [['none', 'Keine (glatt)'], ['grain', 'Körnung (fein)'], ['film', 'Körnung (Film)'], ['dots', 'Punktraster'], ['lines', 'Feine Linien'], ['canvas', 'Leinen'], ['vignette', 'Vignette (Ränder dunkler)']])));
+      add(row('Struktur', 'Feine Oberfläche für den Hintergrund – sehr dezent', selectCtl('texture', [['none', 'Keine (glatt)'], ['grain', 'Körnung (fein)'], ['film', 'Körnung (Film)'], ['dots', 'Punktraster'], ['lines', 'Feine Linien'], ['canvas', 'Leinen'], ['scan', 'Scanlines'], ['grid', 'Feines Raster'], ['vignette', 'Vignette (Ränder dunkler)']])));
       add(row('Stärke der Struktur', null, rangeCtl('textureStrength', 5, 100, 5, function (v) { return v + ' %'; })));
       add(row('Eckenradius', 'Karten, Schaltflächen und Dialoge', rangeCtl('radius', 0, 24, 1, px)));
       add(row('Schriftart', null, selectCtl('font', FONT_OPTS)));
+      add(row('Navigation als Pillen-Leiste', 'Startseite, Favoriten und Bibliotheken als zusammenhängende Leiste mit gefüllter aktiver Seite (Jellyfin 12)', toggleCtl('navPills')));
       add(row('Glas-Optik', 'Kopfleiste, Menüs, Dialoge, Rubriken und Karten halbtransparent mit Unschärfe – bei den Glass-Themes automatisch an', toggleCtl('glass')));
       add(row('Liquid Glass', 'Schwebende Glas-Kopfleiste, Lichtkanten, Pillen-Buttons und bewegter Hintergrund – bei den Liquid-Themes automatisch an', toggleCtl('liquid')));
       add(row('Lichtbrechung', 'Liquid Glass verzerrt den Hintergrund wie echtes Glas (benötigt etwas mehr Grafikleistung)', toggleCtl('refraction')));
@@ -1794,7 +1814,7 @@
       add(row('Höhe', 'Gilt nicht für „Kompakt“', selectCtl('mediaBar.height', HEIGHTS)));
       add(row('Indikator', null, selectCtl('mediaBar.indicator', INDICATORS)));
       add(el('h3', { text: 'Animation' }));
-      add(row('Übergang', 'Wie die Bilder wechseln', selectCtl('mediaBar.animation', MB_ANIMS)));
+      add(row('Übergang', 'Wie die Bilder wechseln (bei „Bannern“ gleiten die Banner immer seitlich)', selectCtl('mediaBar.animation', MB_ANIMS)));
       add(row('Kamerafahrt (Ken Burns)', 'Langsamer Zoom und Schwenk über das Bild – lässt sich mit jedem Übergang kombinieren', toggleCtl('mediaBar.kenburns')));
       add(row('Übergangsdauer', 'Wie lange ein Wechsel dauert (größer = langsamer)', rangeCtl('mediaBar.transition', 0.3, 3, 0.1, function (v) { return v.toFixed(1) + ' s'; })));
       add(row('Text-Animation', 'Wie Titel, Infos und Buttons erscheinen', selectCtl('mediaBar.text', TEXT_ANIMS)));
@@ -1828,6 +1848,7 @@
       add(row('Player im JellyDrax-Design', 'Farben, Fortschrittsbalken und Buttons des Videoplayers passend zum Theme. Funktionen und Player-Plugins bleiben unverändert.', toggleCtl('player.theme')));
       add(row('SyncPlay und Cast oben im Player ausblenden', 'Die beiden Symbole oben rechts im Player', toggleCtl('player.hideTopActions')));
       add(row('Größe der Steuerleiste', 'Kompakt nimmt weniger vom Bild ein: kleinere Buttons, schmalere Leiste', selectCtl('player.size', [['compact', 'Kompakt'], ['normal', 'Normal']])));
+      add(row('Steuerung ausblenden nach', 'Wie lange nach der letzten Mausbewegung die Bedienelemente sichtbar bleiben (Jellyfin selbst: 3 Sekunden)', selectCtl('player.hideDelay', [['2', '2 Sekunden'], ['3', '3 Sekunden (Jellyfin)'], ['5', '5 Sekunden']])));
       add(row('Medien-Buttons mittig', 'Wiedergabe, Spulen und Titelwechsel in der Mitte der Leiste; bei zu wenig Platz (schmales Fenster, viele Plugin-Buttons) automatisch wie bisher links', toggleCtl('player.centerControls')));
       add(row('Episodenliste (Plugin) anpassen', 'Das Fenster des Plugins „In-Player Episode Preview“ als Panel rechts im Player, im Design des Themes', toggleCtl('player.episodePanel')));
     } else if (activeTab === 'updates') {
@@ -2055,6 +2076,7 @@
     refreshMediaBar(false);
     refreshGenres(false);
     ensureDetailRatings();
+    updateNavState();
     if (S.player.theme && document.querySelector('.videoOsdBottom .buttons')) schedulePlayerLayout();
     if (!updateAsked && FEATURES.updates) { updateAsked = true; hostPost({ jdx: 'update-get' }); }
     if (FEATURES.frameless) {

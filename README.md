@@ -16,7 +16,7 @@ Entwickelt für **Jellyfin 12.4** (funktioniert auch mit 10.10/10.11).
 |---|---|
 | **Design** | eigene Farben, Schrift, Eckenradius, Kopfleiste mit Glas-Effekt, Hintergrund ohne Medienbilder |
 | **Server-CSS** | wird standardmäßig ignoriert (z. B. ElegantFin) – abschaltbar unter *Erweitert* |
-| **Media Bar** | eigene Media Bar auf der Startseite (6 Stile, 8 Übergänge, Trailer im Hintergrund) |
+| **Media Bar** | eigene Media Bar auf der Startseite (7 Stile, 8 Übergänge, Trailer im Hintergrund) |
 | **Player** | Optik im Theme-Design, wahlweise kompakt, Medien-Buttons mittig (abschaltbar); abgespielt wird weiterhin mit dem Jellyfin-Player, Player-Plugins (z. B. Intro Skipper) funktionieren wie gewohnt |
 | **Plugins** | JavaScript-Plugins des Servers laufen weiterhin; eine Media Bar eines Server-Plugins wird auf Wunsch ausgeblendet |
 
@@ -25,17 +25,19 @@ Entwickelt für **Jellyfin 12.4** (funktioniert auch mit 10.10/10.11).
 Öffnen über das **Paletten-Symbol** in der Kopfleiste (neben der Suche), mit **Strg + ,** oder über das
 Rechtsklick-Menü der Titelleiste. Alle Änderungen sind sofort sichtbar und werden in der App gespeichert.
 
-- **Design** – 12 fertige Themes: Liquid Glass, Glass Noir, Glass Obsidian, Glass, JellyDrax, Midnight,
-  AMOLED, Kino, Dracula, Ozean, Sonnenuntergang, Jellyfin Klassik; dazu **eigene Farben**, Hintergrund-Stil,
-  **Struktur** (Körnung, Film-Körnung, Punktraster, Linien, Leinen, Vignette – Stärke per Regler),
-  Eckenradius, Schriftart, Glas-Optik. Die Windows-Titelleiste übernimmt die Theme-Farbe.
+- **Design** – 13 fertige Themes: Liquid Glass, Glass Noir, Glass Obsidian, **Cyberpunk 2077** (Gelb auf
+  Schwarz, abgeschrägte Ecken, Scanlines, Glitch-Hover), Glass, JellyDrax, Midnight, AMOLED, Kino, Dracula,
+  Ozean, Sonnenuntergang, Jellyfin Klassik; dazu **eigene Farben**, Hintergrund-Stil, **Struktur** (Körnung,
+  Film-Körnung, Punktraster, Linien, Leinen, Scanlines, Raster, Vignette – Stärke per Regler), Eckenradius,
+  Schriftart, Glas-Optik und die **Navigation als Pillen-Leiste** (Startseite, Favoriten, Bibliotheken).
+  Die Windows-Titelleiste übernimmt die Theme-Farbe.
 - **Media Bar**
-  - 9 Stile: *Kino* (volle Breite, bis unter die Kopfleiste), *Zentriert*, *Geteilt* (Text links, Bild rechts),
-    *Kompakt*, *Spotlight* (Text rechts), *Karussell* (Nachbarn seitlich sichtbar), *Bühne* (ganzes Bild im
-    Rahmen), *Diagonal*, *Minimal*
-  - 13 Übergänge: Überblenden, Abblenden über Schwarz, Schieben, Hochschieben, Zoom, Fokus, Unschärfe,
-    Wischen, Diagonal, Öffnen von der Mitte, Kreis, 3D-Würfel, 3D-Drehung – jeweils kombinierbar mit der
-    **Kamerafahrt (Ken Burns)**, die sich separat ein- und ausschalten lässt
+  - 7 Stile: *Kino* (volle Breite, bis unter die Kopfleiste), *Karte* (Text unten links, Pillen-Pfeile unten
+    rechts), *Bannern* (Banner mit angeschnittenen Nachbarn, Anzeige darunter), *Geteilt*, *Spotlight*
+    (Text rechts), *Diagonal*, *Minimal* (deckend)
+  - 8 Übergänge: Überblenden, Schieben, Hochschieben, Zoom, Unschärfe, Wischen, Diagonal wischen, Öffnen von
+    der Mitte – jeweils kombinierbar mit der **Kamerafahrt (Ken Burns)**, die sich separat ein- und
+    ausschalten lässt
   - Übergangsdauer per Regler (0,3–3 s), Text-Animationen, Indikator (Fortschrittsbalken, Punkte, Vorschaubilder, Zähler), Höhe, Anzeigedauer
   - Inhalt: zufällig, neu hinzugefügt, neueste Veröffentlichungen, am besten bewertet, ungesehen, Favoriten;
     Filme/Serien/Musikalben/Sammlungen; Anzahl
@@ -48,11 +50,12 @@ Rechtsklick-Menü der Titelleiste. Alle Änderungen sind sofort sichtbar und wer
 - **Player** – Videoplayer im Theme-Design mit **kompakter Steuerleiste** (weniger Bildschirmfläche) und
   **mittig angeordneten Medien-Buttons** (Endzeit links, übrige Buttons rechts; bei zu wenig Platz automatisch
   wie bisher). Das Fenster des Plugins „In-Player Episode Preview“ erscheint als **Panel am rechten Rand**
-  über der Steuerleiste im Design des Themes. Nur Optik: Player-Plugins funktionieren unverändert.
+  über der Steuerleiste im Design des Themes. Die Steuerung blendet sich nach 2 Sekunden aus (einstellbar:
+  2, 3 oder 5 s). Nur Optik: Player-Plugins funktionieren unverändert.
 - **Updates** (Windows) – Suche nach neuen Versionen und Update mit einem Klick (Installer im Hintergrund bzw.
   Austausch der EXE, SHA-256-geprüft), automatische Prüfung beim Start.
 - **Animationen** – Hover über Poster/Medienfelder: *Elegant* (wie ElegantFin: feiner Rahmen wird weiß,
-  leichter Zoom, Lichtstreifen über das Bild), Anheben, Bild-Zoom, Lichtreflex, keine – mit Live-Vorschau. Seitenwechsel-Animation und
+  leichter Zoom, Lichtstreifen über das Bild), Anheben, Bild-Zoom, Lichtreflex, **Glitch** (kurzer RGB-Versatz wie in Cyberpunk 2077), keine – mit Live-Vorschau. Seitenwechsel-Animation und
   Geschwindigkeit aller Animationen, Schalter „Animationen reduzieren“ (unabhängig von der Windows-Einstellung).
 - **Startseite** – Genre-Rubriken (Action, Komödie, Science-Fiction …; gleiche Genres in verschiedenen
   Schreibweisen/Sprachen werden zusammengefasst), Scrollleiste ausblenden, Hintergrundbilder aus der Mediathek (Standard: aus), Banner auf Film-/Serienseiten
@@ -62,11 +65,11 @@ Rechtsklick-Menü der Titelleiste. Alle Änderungen sind sofort sichtbar und wer
 
 ## Installation
 
-**Installer:** `JellyDrax-Setup-2.9.0.exe` ausführen. Installiert pro Benutzer (keine Adminrechte) nach
+**Installer:** `JellyDrax-Setup-2.10.0.exe` ausführen. Installiert pro Benutzer (keine Adminrechte) nach
 `%LOCALAPPDATA%\Programs\JellyDrax`, legt einen **Startmenü-Eintrag** an (optional Desktop-Verknüpfung) und
 erscheint unter *Einstellungen → Apps → Installierte Apps*. Eine vorhandene Installation von
 „Jellyfin Desktop“ wird ersetzt – Server, Anmeldung und Fensterposition werden übernommen.
-Stille Installation: `JellyDrax-Setup-2.9.0.exe /S`.
+Stille Installation: `JellyDrax-Setup-2.10.0.exe /S`.
 
 **Ohne Installation:** `JellyDrax.exe` direkt ausführen (kein .NET nötig).
 
@@ -157,7 +160,7 @@ Server, sofern nicht `--enable-vaapi` und ein passender VA-API-Treiber die Hardw
 
 ```
 dotnet publish src/JellyDrax -c Release -o dist
-makensis -DVERSION=2.9.0 installer/JellyDrax.nsi
+makensis -DVERSION=2.10.0 installer/JellyDrax.nsi
 ```
 
 Benötigt das .NET 8 SDK und für den Installer [NSIS](https://nsis.sourceforge.io).
