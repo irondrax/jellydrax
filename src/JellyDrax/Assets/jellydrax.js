@@ -67,6 +67,7 @@
     bgStyle: 'glow',
     navPills: true,
     navCenter: true,
+    headerIslands: true,
     hideCastSync: true,
     texture: 'grain',
     textureStrength: 35,
@@ -347,6 +348,7 @@
     r.classList.toggle('jdx-player-compact', S.player.size === 'compact');
     r.classList.toggle('jdx-navpills', !!S.navPills);
     r.classList.toggle('jdx-hide-castsync', !!S.hideCastSync);
+    r.classList.toggle('jdx-islands', !!S.headerIslands);
     if (!S.navPills || !S.navCenter) r.classList.remove('jdx-nav-center');
     r.classList.toggle('jdx-cyber', !!(THEMES[S.theme] && THEMES[S.theme].cyber));
     r.style.setProperty('--jdx-home-label', /^de/i.test(navigator.language || '') ? '"Startseite"' : '"Home"');
@@ -1878,6 +1880,7 @@
       add(row('Eckenradius', 'Karten, Schaltflächen und Dialoge', rangeCtl('radius', 0, 24, 1, px)));
       add(row('Schriftart', null, selectCtl('font', FONT_OPTS)));
       add(row('Navigation als Pillen-Leiste', 'Startseite, Favoriten und Bibliotheken als zusammenhängende Leiste mit gefüllter aktiver Seite (Jellyfin 12)', toggleCtl('navPills')));
+      add(row('Kopfleiste als Inseln', 'Keine durchgehende Leiste: Navigation und Bedienelemente schweben als Glas-Inseln über der Seite', toggleCtl('headerIslands')));
       add(row('Navigation mittig', 'Pillen-Leiste in der Mitte der Kopfleiste (rückt nach links, wenn das Fenster dafür zu schmal ist)', toggleCtl('navCenter')));
       add(row('SyncPlay und „Auf Gerät wiedergeben“ ausblenden', 'Die beiden Symbole in der Kopfleiste. Ein laufendes Streamen auf ein anderes Gerät bleibt sichtbar.', toggleCtl('hideCastSync')));
       add(row('Glas-Optik', 'Kopfleiste, Menüs, Dialoge, Rubriken und Karten halbtransparent mit Unschärfe – bei den Glass-Themes automatisch an', toggleCtl('glass')));

@@ -1,7 +1,7 @@
 {
   "name": "jellydrax",
   "productName": "JellyDrax",
-  "version": "2.11.0",
+  "version": "2.12.0",
   "description": "Jellyfin-Client mit eigenem Design, Themes und Media Bar",
   "homepage": "https://github.com/irondrax/jellydrax",
   "author": {
