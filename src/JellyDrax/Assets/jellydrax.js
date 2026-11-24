@@ -66,6 +66,8 @@
     detailBanner: 'color',
     bgStyle: 'glow',
     navPills: true,
+    navCenter: true,
+    hideCastSync: true,
     texture: 'grain',
     textureStrength: 35,
     radius: 12,
@@ -344,6 +346,8 @@
     r.classList.toggle('jdx-player', !!S.player.theme);
     r.classList.toggle('jdx-player-compact', S.player.size === 'compact');
     r.classList.toggle('jdx-navpills', !!S.navPills);
+    r.classList.toggle('jdx-hide-castsync', !!S.hideCastSync);
+    if (!S.navPills || !S.navCenter) r.classList.remove('jdx-nav-center');
     r.classList.toggle('jdx-cyber', !!(THEMES[S.theme] && THEMES[S.theme].cyber));
     r.style.setProperty('--jdx-home-label', /^de/i.test(navigator.language || '') ? '"Startseite"' : '"Home"');
     r.classList.toggle('jdx-epanel', !!(S.player.theme && S.player.episodePanel));
@@ -691,6 +695,27 @@
     var h = location.hash || '';
     var home = /^#?\/?$/.test(h) || (/^#\/home\b/.test(h) && !/[?&]tab=[1-9]/.test(h));
     if (btn.classList.contains('jdx-nav-active') !== home) btn.classList.toggle('jdx-nav-active', home);
+  }
+
+  // Navigation mittig in der Kopfleiste – nur, wenn sie dort weder Zurück-Button noch die Symbole rechts berührt
+  function updateNavCenter() {
+    var r = document.documentElement;
+    var stack = S.navPills && S.navCenter && document.querySelector('.MuiAppBar-root .MuiToolbar-root > .MuiStack-root');
+    if (!stack || !stack.getClientRects().length) { r.classList.remove('jdx-nav-center'); return; }
+    var bar = stack.parentElement, tb = bar.getBoundingClientRect(), w = stack.getBoundingClientRect().width;
+    var left = tb.left + (tb.width - w) / 2, right = left + w, gap = 16, fits = true, after = false;
+    for (var i = 0; i < bar.children.length && fits; i++) {
+      var c = bar.children[i];
+      if (c === stack) { after = true; continue; }
+      // rechts liegt eine wachsende Box: maßgeblich sind ihre sichtbaren Buttons
+      var parts = after && c.children.length ? c.children : [c];
+      for (var j = 0; j < parts.length; j++) {
+        var b = parts[j].getBoundingClientRect();
+        if (!b.width) continue;
+        if (after ? b.left < right + gap : b.right > left - gap) { fits = false; break; }
+      }
+    }
+    if (r.classList.contains('jdx-nav-center') !== fits) r.classList.toggle('jdx-nav-center', fits);
   }
 
   function schedulePlayerLayout() { if (!playerFrame) playerFrame = requestAnimationFrame(updatePlayerLayout); }
@@ -1472,6 +1497,55 @@
     });
   }
 
+  // ------------------------------------------- Player: "Vorherige Folge"
+  // Jellyfin lädt die Warteschlange einer Serie erst ab der gestarteten Folge (startItemId) –
+  // "Zurück" kommt deshalb nie vor die Folge, mit der die Wiedergabe begonnen hat (z. B. nicht
+  // zurück zu Folge 1, wenn bei Folge 2 gestartet wurde). Bei Folgen ermittelt JellyDrax die
+  // vorherige Folge selbst und startet sie; sonst übernimmt Jellyfin wie gewohnt.
+  var prevBusy = false;
+  function playPreviousEpisode(a) {
+    var deviceId = a.deviceId();
+    return a.getSessions({ deviceId: deviceId }).then(function (sessions) {
+      var own = (sessions || []).filter(function (s) { return s.DeviceId === deviceId; })[0];
+      var cur = own && own.NowPlayingItem;
+      if (!cur || cur.Type !== 'Episode' || !cur.SeriesId) return false;
+      return a.getEpisodes(cur.SeriesId, { UserId: userId(), IsMissing: false, IsVirtualUnaired: false, Fields: 'Path' }).then(function (r) {
+        var items = (r && r.Items) || [], i = -1;
+        for (var k = 0; k < items.length; k++) if (items[k].Id === cur.Id) { i = k; break; }
+        if (i <= 0) return false;
+        return a.sendPlayCommand(own.Id, { PlayCommand: 'PlayNow', ItemIds: items[i - 1].Id, StartPositionTicks: 0 }).then(function () { return true; });
+      });
+    });
+  }
+  document.addEventListener('click', function (e) {
+    var btn = e.target && e.target.closest && e.target.closest('#videoOsdPage .btnPreviousTrack');
+    var a = api();
+    if (!btn || btn.__jdxPass || !a || !a.getSessions || !a.getEpisodes) return;
+    // vor Jellyfins eigenem Klick-Handler abfangen; klappt es nicht, Klick an Jellyfin weiterreichen
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    if (prevBusy) return;
+    prevBusy = true;
+    function done(ok) {
+      prevBusy = false;
+      if (ok) return;
+      btn.__jdxPass = true;
+      try { btn.click(); } finally { btn.__jdxPass = false; }
+    }
+    playPreviousEpisode(a).then(done, function (err) { console.warn('[JellyDrax] Vorherige Folge:', err); done(false); });
+  }, true);
+  // Umschalt+P (Jellyfins Tastenkürzel für "Zurück") denselben Weg nehmen lassen
+  window.addEventListener('keydown', function (e) {
+    if (e.code !== 'KeyP' || !e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return;
+    var t = e.target;
+    if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+    var btn = document.querySelector('#videoOsdPage:not(.hide) .btnPreviousTrack');
+    if (!btn) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    btn.click();
+  }, true);
+
   function toggleFavorite(item, btn) {
     var a = api(), uid = userId();
     if (!a || !uid) return;
@@ -1804,6 +1878,8 @@
       add(row('Eckenradius', 'Karten, Schaltflächen und Dialoge', rangeCtl('radius', 0, 24, 1, px)));
       add(row('Schriftart', null, selectCtl('font', FONT_OPTS)));
       add(row('Navigation als Pillen-Leiste', 'Startseite, Favoriten und Bibliotheken als zusammenhängende Leiste mit gefüllter aktiver Seite (Jellyfin 12)', toggleCtl('navPills')));
+      add(row('Navigation mittig', 'Pillen-Leiste in der Mitte der Kopfleiste (rückt nach links, wenn das Fenster dafür zu schmal ist)', toggleCtl('navCenter')));
+      add(row('SyncPlay und „Auf Gerät wiedergeben“ ausblenden', 'Die beiden Symbole in der Kopfleiste. Ein laufendes Streamen auf ein anderes Gerät bleibt sichtbar.', toggleCtl('hideCastSync')));
       add(row('Glas-Optik', 'Kopfleiste, Menüs, Dialoge, Rubriken und Karten halbtransparent mit Unschärfe – bei den Glass-Themes automatisch an', toggleCtl('glass')));
       add(row('Liquid Glass', 'Schwebende Glas-Kopfleiste, Lichtkanten, Pillen-Buttons und bewegter Hintergrund – bei den Liquid-Themes automatisch an', toggleCtl('liquid')));
       add(row('Lichtbrechung', 'Liquid Glass verzerrt den Hintergrund wie echtes Glas (benötigt etwas mehr Grafikleistung)', toggleCtl('refraction')));
@@ -2077,6 +2153,7 @@
     refreshGenres(false);
     ensureDetailRatings();
     updateNavState();
+    updateNavCenter();
     if (S.player.theme && document.querySelector('.videoOsdBottom .buttons')) schedulePlayerLayout();
     if (!updateAsked && FEATURES.updates) { updateAsked = true; hostPost({ jdx: 'update-get' }); }
     if (FEATURES.frameless) {
@@ -2106,7 +2183,7 @@
   window.addEventListener('hashchange', function () { setTimeout(tick, 120); });
   window.addEventListener('popstate', function () { setTimeout(tick, 120); });
   window.addEventListener('scroll', updateHeroHeader, { passive: true });
-  window.addEventListener('resize', function () { updatePull(); });
+  window.addEventListener('resize', function () { updatePull(); updateNavCenter(); });
   document.addEventListener('visibilitychange', syncPause);
   document.addEventListener('keydown', function (e) {
     if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key === ',') { e.preventDefault(); window.JellyDrax.toggleSettings(); }

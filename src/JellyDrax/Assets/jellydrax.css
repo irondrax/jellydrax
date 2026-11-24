@@ -366,6 +366,11 @@ html.jdx.jdx-center-libs #homeTab .homeLibraryButton {
 }
 
 html.jdx.jdx-hide-first-title #homeTab .section0 .sectionTitle { display: none !important; }
+/* "Meine Medien (klein)": Überschrift weglassen, die Kacheln sprechen für sich */
+html.jdx .verticalSection:has(> .homeLibraryButtonContainer) > .sectionTitle { display: none !important; }
+/* SyncPlay und "Auf Gerät wiedergeben" in der Kopfleiste (ein aktives Streamen bleibt sichtbar) */
+html.jdx.jdx-hide-castsync .MuiAppBar-root :is([aria-controls="app-sync-play-menu"], [aria-controls="app-remote-play-menu"]),
+html.jdx.jdx-hide-castsync .skinHeader :is(.headerSyncButton, .headerCastButton) { display: none !important; }
 
 /* Media Bar eines Server-Plugins ausblenden (eigene Media Bar wird genutzt) */
 html.jdx.jdx-hide-plugin-bar #slides-container,
@@ -605,7 +610,7 @@ html.jdx.jdx-liquid .card .cardBox:not(.visualCardBox) .cardScalable {
 
 /* Media Bar */
 html.jdx.jdx-liquid .jdx-mb[data-style="split"],
-html.jdx.jdx-liquid .jdx-mb[data-style="card"] {
+html.jdx.jdx-liquid .jdx-mb[data-style="card"] .jdx-mb-stage {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 30px 60px -28px rgba(0, 0, 0, 0.85) !important;
 }
 html.jdx.jdx-liquid .jdx-ind-dot,
@@ -836,93 +841,6 @@ html.jdx.jdx-epanel #previewPopup .itemProgressBarForeground { background: linea
 @media (max-width: 900px) { html.jdx.jdx-epanel #previewPopup .previewPopup.actionSheet { width: min(92vw, 420px); } }
 
 /* =====================================================================
-   Media-Bar-Stile Karte, Bannern und deckendes Minimal
-   ===================================================================== */
-
-/* ---- Karte: abgerundete Karte, Text unten links, Pfeile als Pillen unten rechts ---- */
-.jdx-mb[data-style="card"] {
-  background: var(--jdx-surface);
-  box-shadow: 0 30px 60px -28px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(var(--jdx-text-rgb), 0.06);
-}
-.jdx-mb[data-style="card"] .jdx-slide-shade {
-  background:
-    linear-gradient(0deg, rgba(0, 0, 0, 0.84) 0%, rgba(0, 0, 0, 0.42) 34%, rgba(0, 0, 0, 0) 64%),
-    linear-gradient(90deg, rgba(0, 0, 0, 0.5) 0%, rgba(0, 0, 0, 0) 56%);
-}
-.jdx-mb[data-style="card"] .jdx-slide-body { left: 2.2em; bottom: 1.9em; max-width: min(640px, 58%); }
-.jdx-mb[data-style="card"] .jdx-title-logo { max-height: 118px; }
-.jdx-mb[data-style="card"] .jdx-overview { -webkit-line-clamp: 2; }
-.jdx-mb[data-style="card"] .jdx-mb-nav {
-  top: auto;
-  bottom: 28px;
-  margin: 0;
-  width: 52px;
-  height: 36px;
-  border-radius: 999px;
-  opacity: 1;
-  font-size: 24px;
-  background: rgba(255, 255, 255, 0.14);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-.jdx-mb[data-style="card"] .jdx-mb-nav:hover { background: rgba(var(--jdx-accent-rgb), 0.85); }
-.jdx-mb[data-style="card"] .jdx-mb-prev { left: auto; right: 88px; }
-.jdx-mb[data-style="card"] .jdx-mb-next { right: 28px; }
-.jdx-mb[data-style="card"] .jdx-mb-mute { top: auto; bottom: 28px; right: 156px; }
-/* Anzeige oben, damit sie nicht mit Text und Pfeilen unten kollidiert */
-.jdx-mb[data-style="card"] .jdx-mb-ind { top: 1.2em; bottom: auto; }
-.jdx-mb[data-style="card"][data-ind="dots"] .jdx-mb-ind,
-.jdx-mb[data-style="card"][data-ind="counter"] .jdx-mb-ind { left: auto; right: 1.6em; transform: none; }
-.jdx-mb[data-style="card"][data-ind="bars"] .jdx-mb-ind { left: 1.6em; right: 1.6em; }
-.jdx-mb[data-style="card"][data-ind="thumbs"] .jdx-mb-ind { right: 1.4em; left: auto; max-width: 46%; }
-
-/* ---- Bannern: Banner mit seitlich angeschnittenen Nachbarn, Anzeige darunter ---- */
-.jdx-mb[data-style="banner"] { margin: 0.8em 0 1.4em; background: transparent; overflow: hidden; }
-.jdx-mb[data-style="banner"] .jdx-mb-stage { inset: 0 0 2.4em 0; }
-.jdx-mb[data-style="banner"] .jdx-slide {
-  left: 5.2%;
-  right: 5.2%;
-  top: 0;
-  bottom: 0;
-  visibility: visible;
-  opacity: 0;
-  pointer-events: none;
-  border-radius: calc(var(--jdx-radius) * 1.6);
-  background: var(--jdx-surface);
-  transform: scale(0.96);
-  box-shadow: 0 24px 50px -26px rgba(0, 0, 0, 0.85);
-  animation: none !important;
-  transition: transform var(--jdx-mb-dur) var(--jdx-ease), opacity var(--jdx-mb-dur) ease, filter var(--jdx-mb-dur) ease;
-}
-.jdx-mb[data-style="banner"] .jdx-slide[data-pos="0"] { opacity: 1; transform: none; z-index: 3; pointer-events: auto; }
-.jdx-mb[data-style="banner"] .jdx-slide[data-pos="-1"] { opacity: 0.62; transform: translateX(-97%) scale(0.96); filter: brightness(0.55); z-index: 2; pointer-events: auto; cursor: pointer; }
-.jdx-mb[data-style="banner"] .jdx-slide[data-pos="1"] { opacity: 0.62; transform: translateX(97%) scale(0.96); filter: brightness(0.55); z-index: 2; pointer-events: auto; cursor: pointer; }
-.jdx-mb[data-style="banner"] .jdx-slide[data-pos="-2"] { transform: translateX(-195%) scale(0.96); }
-.jdx-mb[data-style="banner"] .jdx-slide[data-pos="2"] { transform: translateX(195%) scale(0.96); }
-.jdx-mb[data-style="banner"] .jdx-slide-shade {
-  background:
-    linear-gradient(0deg, rgba(0, 0, 0, 0.84) 0%, rgba(0, 0, 0, 0.42) 34%, rgba(0, 0, 0, 0) 64%),
-    linear-gradient(90deg, rgba(0, 0, 0, 0.5) 0%, rgba(0, 0, 0, 0) 56%);
-}
-.jdx-mb[data-style="banner"] .jdx-slide-body { left: 2.2em; bottom: 1.8em; max-width: min(640px, 60%); transition: opacity 0.3s ease; }
-.jdx-mb[data-style="banner"] .jdx-slide:not([data-pos="0"]) .jdx-slide-body { opacity: 0; }
-.jdx-mb[data-style="banner"] .jdx-title-logo { max-height: 118px; }
-.jdx-mb[data-style="banner"] .jdx-overview { -webkit-line-clamp: 2; }
-.jdx-mb[data-style="banner"] .jdx-mb-nav { top: calc(50% - 19px); opacity: 1; background: rgba(0, 0, 0, 0.45); }
-.jdx-mb[data-style="banner"] .jdx-mb-prev { left: calc(5.2% + 12px); }
-.jdx-mb[data-style="banner"] .jdx-mb-next { right: calc(5.2% + 12px); }
-.jdx-mb[data-style="banner"] .jdx-mb-ind { left: 50%; right: auto; bottom: 0.55em; transform: translateX(-50%); }
-.jdx-mb[data-style="banner"][data-ind="bars"] .jdx-mb-ind { left: 22%; right: 22%; transform: none; }
-.jdx-mb[data-style="banner"][data-ind="counter"] .jdx-mb-ind { right: auto; }
-
-/* ---- Minimal: deckend, keine Transparenz nach unten ---- */
-.jdx-mb[data-style="minimal"] { background: var(--jdx-bg); }
-.jdx-mb[data-style="minimal"] .jdx-slide-shade {
-  background:
-    linear-gradient(0deg, var(--jdx-bg) 0%, rgba(var(--jdx-bg-rgb), 0.95) 20%, rgba(var(--jdx-bg-rgb), 0.66) 44%, rgba(var(--jdx-bg-rgb), 0.2) 72%, rgba(var(--jdx-bg-rgb), 0) 100%),
-    linear-gradient(180deg, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0) 20%);
-}
-
-/* =====================================================================
    Navigation in der Kopfleiste als Pillen-Leiste (Jellyfin 12)
    ===================================================================== */
 
@@ -953,6 +871,14 @@ html.jdx.jdx-navpills:not(.transparentDocument) .MuiAppBar-root .MuiToolbar-root
 html.jdx.jdx-navpills:not(.transparentDocument) .MuiAppBar-root .MuiToolbar-root > .MuiStack-root > .MuiButton-root:hover {
   background: rgba(var(--jdx-text-rgb), 0.1);
   color: var(--jdx-text);
+}
+/* mittig in der Kopfleiste (JS prüft, dass nichts überlappt) */
+html.jdx.jdx-navpills.jdx-nav-center .MuiAppBar-root .MuiToolbar-root { position: relative; }
+html.jdx.jdx-navpills.jdx-nav-center:not(.transparentDocument) .MuiAppBar-root .MuiToolbar-root > .MuiStack-root {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
 }
 /* aktive Seite: gefüllte Pille */
 html.jdx.jdx-navpills:not(.transparentDocument) .MuiAppBar-root .MuiToolbar-root > .MuiStack-root > .MuiButton-colorPrimary,
@@ -996,13 +922,8 @@ html.jdx .jdx-genre-arrows button:hover {
   transform: none;
 }
 html.jdx .MuiAppBar-root .MuiIconButton-root .MuiTouchRipple-root { display: none; }
-html.jdx .jdx-winctl button,
-html.jdx.jdx-frameless .MuiAppBar-root .MuiToolbar-root > .jdx-winctl button,
-html.jdx.jdx-player .osdHeader .jdx-winctl button { width: 38px !important; height: 38px !important; border-radius: 50% !important; }
 html.jdx .jdx-winctl .jdx-win-close:hover { background-color: #c42b1c !important; color: #fff; }
 html.jdx .jdx-winctl .jdx-win-close:active { background-color: #a12619 !important; }
-html.jdx-frameless .MuiAppBar-root .MuiToolbar-root > .jdx-winctl button { width: 38px; height: 38px; }
-html.jdx.jdx-player .osdHeader .jdx-winctl button { width: 38px; height: 38px; border-radius: 50%; }
 
 /* =====================================================================
    Hover-Effekt "Glitch" (Cyberpunk): kurzer RGB-Versatz mit Streifen beim Überfahren
@@ -1125,7 +1046,7 @@ html.jdx.jdx-cyber .card .cardScalable,
 html.jdx.jdx-cyber .homeLibraryButton,
 html.jdx.jdx-cyber .jdx-btn,
 html.jdx.jdx-cyber .jdx-mb[data-style="split"],
-html.jdx.jdx-cyber .jdx-mb[data-style="card"],
+html.jdx.jdx-cyber .jdx-mb[data-style="card"] .jdx-mb-stage,
 html.jdx.jdx-cyber .jdx-mb[data-style="diagonal"],
 html.jdx.jdx-cyber #jdx-settings .jdx-panel,
 html.jdx.jdx-cyber #jdx-settings .jdx-row,
@@ -1285,22 +1206,18 @@ html.jdx.jdx-cyber ::-webkit-scrollbar-thumb { background-color: rgba(var(--jdx-
 .jdx-winctl button {
   all: unset;
   box-sizing: border-box;
-  width: 42px;
-  height: 32px;
+  width: 38px;
+  height: 38px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
+  border-radius: 50%;
   color: inherit;
   cursor: default;
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 .jdx-winctl button svg { width: 11px; height: 11px; }
-.jdx-winctl button:hover { background: rgba(var(--jdx-text-rgb), 0.12); }
 .jdx-winctl button:active { background: rgba(var(--jdx-text-rgb), 0.2); }
-.jdx-winctl .jdx-win-close:hover { background: #c42b1c; color: #fff; }
-.jdx-winctl .jdx-win-close:active { background: #a12619; color: #fff; }
-html.jdx.jdx-liquid .jdx-winctl button { border-radius: 999px; }
 /* Kopfleiste (Jellyfin 12): bündig am rechten Fensterrand wie bei Windows, unabhängig vom Innenabstand */
 html.jdx-frameless .MuiAppBar-root .MuiToolbar-root { position: relative; padding-right: 150px !important; }
 html.jdx-frameless .MuiAppBar-root .MuiToolbar-root > .jdx-winctl {
@@ -1310,10 +1227,9 @@ html.jdx-frameless .MuiAppBar-root .MuiToolbar-root > .jdx-winctl {
   height: 48px;
   margin: 0;
 }
-html.jdx-frameless .MuiAppBar-root .MuiToolbar-root > .jdx-winctl button { width: 46px; height: 36px; }
 /* im Player-Kopf eine eigene Insel */
 html.jdx.jdx-player .osdHeader .jdx-winctl { margin-left: auto; color: #fff; }
-html.jdx.jdx-player .osdHeader .jdx-winctl button { width: 42px; height: 34px; border-radius: 50%; }
+
 html.jdx.jdx-player .osdHeader .jdx-winctl { gap: 2px; }
 
 #jdx-winctl-float {
@@ -1759,8 +1675,7 @@ html.jdx-own-ratings .itemDetailPage .itemMiscInfo .mediaInfoCriticRating { disp
 
 /* ------------------------------------- Stile als abgerundete Karte */
 
-.jdx-mb[data-style="split"],
-.jdx-mb[data-style="card"] {
+.jdx-mb[data-style="split"] {
   margin: 0.6em 3.3vw 1.8em;
   border-radius: calc(var(--jdx-radius) * 1.6);
   box-shadow: 0 30px 60px -28px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(var(--jdx-text-rgb), 0.06);
@@ -1814,8 +1729,10 @@ html.jdx-own-ratings .itemDetailPage .itemMiscInfo .mediaInfoCriticRating { disp
 
 /* ------------------------------------------------------- Stil: Minimal */
 
+/* deckend: Bild läuft nicht ins Transparente aus, nur ein dunkler Schleier hinter dem Text */
+.jdx-mb[data-style="minimal"] { background: #000; }
 .jdx-mb[data-style="minimal"] .jdx-slide-shade {
-  background: linear-gradient(0deg, var(--jdx-bg) 0%, rgba(var(--jdx-bg-rgb), 0.45) 28%, rgba(var(--jdx-bg-rgb), 0) 55%),
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0.78) 0%, rgba(0, 0, 0, 0.42) 26%, rgba(0, 0, 0, 0) 52%),
     linear-gradient(180deg, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0) 20%);
 }
 .jdx-mb[data-style="minimal"] .jdx-slide-body {
@@ -1868,6 +1785,104 @@ html.jdx-own-ratings .itemDetailPage .itemMiscInfo .mediaInfoCriticRating { disp
   clip-path: polygon(33.4% 100%, 45.3% 0, 46.2% 0, 34.3% 100%);
 }
 .jdx-mb[data-style="diagonal"] .jdx-slide-body { max-width: 34%; }
+
+/* =====================================================================
+   Media-Bar-Stile Karte und Bannern (nach den Grundregeln, damit sie Vorrang haben)
+   ===================================================================== */
+
+/* ---- Karte: abgerundete Karte, Text unten links, Pfeile als Pillen unten rechts,
+   Fortschritt/Punkte UNTER der Karte (stört das Bild nicht) ---- */
+.jdx-mb[data-style="card"] {
+  --jdx-card-ind: 2.2em;
+  height: calc(var(--jdx-mb-h) * 0.9);
+  margin: 0.6em 3.3vw 0.9em;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  overflow: visible;
+}
+.jdx-mb[data-style="card"][data-ind="none"] { --jdx-card-ind: 0px; }
+.jdx-mb[data-style="card"][data-ind="thumbs"] { --jdx-card-ind: 4.4em; }
+.jdx-mb[data-style="card"] .jdx-mb-stage {
+  inset: 0 0 var(--jdx-card-ind) 0;
+  overflow: hidden;
+  border-radius: calc(var(--jdx-radius) * 1.6);
+  background: var(--jdx-surface);
+  box-shadow: 0 30px 60px -28px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(var(--jdx-text-rgb), 0.06);
+}
+.jdx-mb[data-style="card"] .jdx-slide-shade {
+  background:
+    linear-gradient(0deg, rgba(0, 0, 0, 0.84) 0%, rgba(0, 0, 0, 0.42) 34%, rgba(0, 0, 0, 0) 64%),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.5) 0%, rgba(0, 0, 0, 0) 56%);
+}
+.jdx-mb[data-style="card"] .jdx-slide-body { left: 2.2em; bottom: 1.9em; max-width: min(640px, 58%); }
+.jdx-mb[data-style="card"] .jdx-title-logo { max-height: 118px; }
+.jdx-mb[data-style="card"] :is(.jdx-overview, .jdx-tagline) { display: none; }
+.jdx-mb[data-style="card"] .jdx-mb-nav {
+  top: auto;
+  bottom: calc(var(--jdx-card-ind) + 1.9em);
+  margin: 0;
+  width: 52px;
+  height: 36px;
+  border-radius: 999px;
+  opacity: 1;
+  font-size: 24px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+.jdx-mb[data-style="card"] .jdx-mb-nav:hover { background: rgba(var(--jdx-accent-rgb), 0.85); }
+.jdx-mb[data-style="card"] .jdx-mb-prev { left: auto; right: calc(1.6em + 60px); }
+.jdx-mb[data-style="card"] .jdx-mb-next { right: 1.6em; }
+.jdx-mb[data-style="card"] .jdx-mb-mute { top: 1.2em; bottom: auto; right: 1.2em; }
+/* Anzeige mittig unter der Karte */
+.jdx-mb[data-style="card"] .jdx-mb-ind { top: auto; bottom: 0; height: var(--jdx-card-ind); left: 50%; right: auto; transform: translateX(-50%); max-width: 100%; }
+.jdx-mb[data-style="card"][data-ind="bars"] .jdx-mb-ind { left: 20%; right: 20%; transform: none; }
+.jdx-mb[data-style="card"][data-ind="thumbs"] .jdx-mb-ind { padding: 0; }
+.jdx-mb[data-style="card"][data-ind="thumbs"] .jdx-ind-thumb { width: 64px; }
+.jdx-mb[data-style="card"][data-ind="counter"] .jdx-mb-ind { color: var(--jdx-muted); text-shadow: none; }
+.jdx-mb[data-style="card"] .jdx-ind-dot:not(.is-active),
+.jdx-mb[data-style="banner"] .jdx-ind-dot:not(.is-active) { background: rgba(var(--jdx-text-rgb), 0.3); }
+.jdx-mb[data-style="card"] .jdx-ind-bar,
+.jdx-mb[data-style="banner"] .jdx-ind-bar { background: rgba(var(--jdx-text-rgb), 0.16); }
+
+/* ---- Bannern: Banner mit seitlich angeschnittenen Nachbarn, Anzeige darunter ---- */
+.jdx-mb[data-style="banner"] { margin: 0.8em 0 1.4em; background: transparent; overflow: hidden; }
+.jdx-mb[data-style="banner"] .jdx-mb-stage { inset: 0 0 2.4em 0; }
+.jdx-mb[data-style="banner"] .jdx-slide {
+  left: 5.2%;
+  right: 5.2%;
+  top: 0;
+  bottom: 0;
+  visibility: visible;
+  opacity: 0;
+  pointer-events: none;
+  border-radius: calc(var(--jdx-radius) * 1.6);
+  background: var(--jdx-surface);
+  transform: scale(0.96);
+  box-shadow: 0 24px 50px -26px rgba(0, 0, 0, 0.85);
+  animation: none !important;
+  transition: transform var(--jdx-mb-dur) var(--jdx-ease), opacity var(--jdx-mb-dur) ease, filter var(--jdx-mb-dur) ease;
+}
+.jdx-mb[data-style="banner"] .jdx-slide[data-pos="0"] { opacity: 1; transform: none; z-index: 3; pointer-events: auto; }
+.jdx-mb[data-style="banner"] .jdx-slide[data-pos="-1"] { opacity: 0.62; transform: translateX(-97%) scale(0.96); filter: brightness(0.55); z-index: 2; pointer-events: auto; cursor: pointer; }
+.jdx-mb[data-style="banner"] .jdx-slide[data-pos="1"] { opacity: 0.62; transform: translateX(97%) scale(0.96); filter: brightness(0.55); z-index: 2; pointer-events: auto; cursor: pointer; }
+.jdx-mb[data-style="banner"] .jdx-slide[data-pos="-2"] { transform: translateX(-195%) scale(0.96); }
+.jdx-mb[data-style="banner"] .jdx-slide[data-pos="2"] { transform: translateX(195%) scale(0.96); }
+.jdx-mb[data-style="banner"] .jdx-slide-shade {
+  background:
+    linear-gradient(0deg, rgba(0, 0, 0, 0.84) 0%, rgba(0, 0, 0, 0.42) 34%, rgba(0, 0, 0, 0) 64%),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.5) 0%, rgba(0, 0, 0, 0) 56%);
+}
+.jdx-mb[data-style="banner"] .jdx-slide-body { left: 2.2em; bottom: 1.8em; max-width: min(640px, 60%); transition: opacity 0.3s ease; }
+.jdx-mb[data-style="banner"] .jdx-slide:not([data-pos="0"]) .jdx-slide-body { opacity: 0; }
+.jdx-mb[data-style="banner"] .jdx-title-logo { max-height: 118px; }
+.jdx-mb[data-style="banner"] .jdx-overview { -webkit-line-clamp: 2; }
+.jdx-mb[data-style="banner"] .jdx-mb-nav { top: calc(50% - 19px); opacity: 1; background: rgba(0, 0, 0, 0.45); }
+.jdx-mb[data-style="banner"] .jdx-mb-prev { left: calc(5.2% + 12px); }
+.jdx-mb[data-style="banner"] .jdx-mb-next { right: calc(5.2% + 12px); }
+.jdx-mb[data-style="banner"] .jdx-mb-ind { top: auto; left: 50%; right: auto; bottom: 0; height: 2.4em; transform: translateX(-50%); }
+.jdx-mb[data-style="banner"][data-ind="bars"] .jdx-mb-ind { left: 22%; right: 22%; transform: none; }
+.jdx-mb[data-style="banner"][data-ind="counter"] .jdx-mb-ind { right: auto; }
 
 /* ------------------------------------------------------ Übergänge (Slides) */
 

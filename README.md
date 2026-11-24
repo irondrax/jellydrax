@@ -29,10 +29,11 @@ Rechtsklick-Menü der Titelleiste. Alle Änderungen sind sofort sichtbar und wer
   Schwarz, abgeschrägte Ecken, Scanlines, Glitch-Hover), Glass, JellyDrax, Midnight, AMOLED, Kino, Dracula,
   Ozean, Sonnenuntergang, Jellyfin Klassik; dazu **eigene Farben**, Hintergrund-Stil, **Struktur** (Körnung,
   Film-Körnung, Punktraster, Linien, Leinen, Scanlines, Raster, Vignette – Stärke per Regler), Eckenradius,
-  Schriftart, Glas-Optik und die **Navigation als Pillen-Leiste** (Startseite, Favoriten, Bibliotheken).
+  Schriftart, Glas-Optik und die **Navigation als Pillen-Leiste** (Startseite, Favoriten, Bibliotheken) mittig in der
+  Kopfleiste; SyncPlay und „Auf Gerät wiedergeben“ lassen sich dort ausblenden (Standard).
   Die Windows-Titelleiste übernimmt die Theme-Farbe.
 - **Media Bar**
-  - 7 Stile: *Kino* (volle Breite, bis unter die Kopfleiste), *Karte* (Text unten links, Pillen-Pfeile unten
+  - 7 Stile: *Kino* (volle Breite, bis unter die Kopfleiste), *Karte* (Titel unten links, Punkte/Fortschritt unter der Karte, Pillen-Pfeile unten
     rechts), *Bannern* (Banner mit angeschnittenen Nachbarn, Anzeige darunter), *Geteilt*, *Spotlight*
     (Text rechts), *Diagonal*, *Minimal* (deckend)
   - 8 Übergänge: Überblenden, Schieben, Hochschieben, Zoom, Unschärfe, Wischen, Diagonal wischen, Öffnen von
@@ -51,7 +52,8 @@ Rechtsklick-Menü der Titelleiste. Alle Änderungen sind sofort sichtbar und wer
   **mittig angeordneten Medien-Buttons** (Endzeit links, übrige Buttons rechts; bei zu wenig Platz automatisch
   wie bisher). Das Fenster des Plugins „In-Player Episode Preview“ erscheint als **Panel am rechten Rand**
   über der Steuerleiste im Design des Themes. Die Steuerung blendet sich nach 2 Sekunden aus (einstellbar:
-  2, 3 oder 5 s). Nur Optik: Player-Plugins funktionieren unverändert.
+  2, 3 oder 5 s). *Vorherige Folge* springt immer zur Folge davor – auch vor die Folge, mit der die
+  Wiedergabe begonnen hat (Jellyfin selbst kann das nicht). Nur Optik: Player-Plugins funktionieren unverändert.
 - **Updates** (Windows) – Suche nach neuen Versionen und Update mit einem Klick (Installer im Hintergrund bzw.
   Austausch der EXE, SHA-256-geprüft), automatische Prüfung beim Start.
 - **Animationen** – Hover über Poster/Medienfelder: *Elegant* (wie ElegantFin: feiner Rahmen wird weiß,
@@ -65,11 +67,11 @@ Rechtsklick-Menü der Titelleiste. Alle Änderungen sind sofort sichtbar und wer
 
 ## Installation
 
-**Installer:** `JellyDrax-Setup-2.10.0.exe` ausführen. Installiert pro Benutzer (keine Adminrechte) nach
+**Installer:** `JellyDrax-Setup-2.11.0.exe` ausführen. Installiert pro Benutzer (keine Adminrechte) nach
 `%LOCALAPPDATA%\Programs\JellyDrax`, legt einen **Startmenü-Eintrag** an (optional Desktop-Verknüpfung) und
 erscheint unter *Einstellungen → Apps → Installierte Apps*. Eine vorhandene Installation von
 „Jellyfin Desktop“ wird ersetzt – Server, Anmeldung und Fensterposition werden übernommen.
-Stille Installation: `JellyDrax-Setup-2.10.0.exe /S`.
+Stille Installation: `JellyDrax-Setup-2.11.0.exe /S`.
 
 **Ohne Installation:** `JellyDrax.exe` direkt ausführen (kein .NET nötig).
 
@@ -160,7 +162,7 @@ Server, sofern nicht `--enable-vaapi` und ein passender VA-API-Treiber die Hardw
 
 ```
 dotnet publish src/JellyDrax -c Release -o dist
-makensis -DVERSION=2.10.0 installer/JellyDrax.nsi
+makensis -DVERSION=2.11.0 installer/JellyDrax.nsi
 ```
 
 Benötigt das .NET 8 SDK und für den Installer [NSIS](https://nsis.sourceforge.io).
