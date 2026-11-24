@@ -39,7 +39,14 @@ jobs:
       - name: NSIS installieren
         if: env.SKIP != 'true'
         shell: pwsh
-        run: choco install nsis -y --no-progress
+        run: |
+          # Chocolatey antwortet gelegentlich mit 504 – bis zu 4 Versuche
+          $makensis = "${env:ProgramFiles(x86)}\NSIS\makensis.exe"
+          for ($i = 1; $i -le 4 -and -not (Test-Path $makensis); $i++) {
+            choco install nsis -y --no-progress
+            if (-not (Test-Path $makensis)) { Start-Sleep -Seconds (20 * $i) }
+          }
+          if (-not (Test-Path $makensis)) { Write-Error "NSIS konnte nicht installiert werden"; exit 1 }
 
       - name: Installer bauen
         if: env.SKIP != 'true'
