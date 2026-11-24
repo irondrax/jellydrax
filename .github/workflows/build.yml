@@ -40,18 +40,30 @@ jobs:
         if: env.SKIP != 'true'
         shell: pwsh
         run: |
-          # Chocolatey antwortet gelegentlich mit 504 – bis zu 4 Versuche
+          # 1. schon vorhanden  2. offizielles ZIP von SourceForge (Prüfsumme fest hinterlegt)
+          # 3. Chocolatey als Rückfall (war zeitweise mit 504 nicht erreichbar)
           $makensis = "${env:ProgramFiles(x86)}\NSIS\makensis.exe"
-          for ($i = 1; $i -le 4 -and -not (Test-Path $makensis); $i++) {
-            choco install nsis -y --no-progress
-            if (-not (Test-Path $makensis)) { Start-Sleep -Seconds (20 * $i) }
+          if (-not (Test-Path $makensis)) {
+            $zip = Join-Path $env:RUNNER_TEMP "nsis-3.10.zip"
+            curl.exe -fsSL --retry 4 --retry-delay 10 -o $zip "https://downloads.sourceforge.net/project/nsis/NSIS%203/3.10/nsis-3.10.zip"
+            if ($LASTEXITCODE -eq 0 -and (Get-FileHash $zip -Algorithm SHA256).Hash -eq "FCDCE3229717A2A148E7CDA0AB5BDB667F39D8FB33EDE1DA8DABC336BD5AD110") {
+              Expand-Archive $zip -DestinationPath $env:RUNNER_TEMP -Force
+              $makensis = Join-Path $env:RUNNER_TEMP "nsis-3.10\makensis.exe"
+            } else {
+              Write-Warning "NSIS-ZIP nicht verfügbar oder Prüfsumme falsch – versuche Chocolatey"
+              for ($i = 1; $i -le 3 -and -not (Test-Path $makensis); $i++) {
+                choco install nsis -y --no-progress
+                if (-not (Test-Path $makensis)) { Start-Sleep -Seconds (20 * $i) }
+              }
+            }
           }
           if (-not (Test-Path $makensis)) { Write-Error "NSIS konnte nicht installiert werden"; exit 1 }
+          "MAKENSIS=$makensis" >> $env:GITHUB_ENV
 
       - name: Installer bauen
         if: env.SKIP != 'true'
         shell: cmd
-        run: '"%ProgramFiles(x86)%\NSIS\makensis.exe" -DVERSION=%VERSION% installer\JellyDrax.nsi'
+        run: '"%MAKENSIS%" -DVERSION=%VERSION% installer\JellyDrax.nsi'
 
       - name: Ins Release hochladen
         if: env.SKIP != 'true' && env.PUBLISH == 'true'
